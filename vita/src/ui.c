@@ -122,10 +122,13 @@ static MdDoc g_md[MAX_MD_DOCS];
 #define MD_LINE_H_CELL 26
 #define MD_TABLE_BAR_H 10
 #define MAX_CELL_SPANS 4096
+/* A pane that can be wider than the text area and pans sideways: a table, or a
+ * code block (which never wraps, so long lines stay readable). */
 typedef struct {
     signed char doc;
     short block;
-    int col_w[MD_MAX_COLS];
+    bool code;
+    int col_w[MD_MAX_COLS]; /* tables only */
     int width;
     bool overflow;
 } UiTable;
@@ -342,14 +345,14 @@ static void draw_hints(HintCtx ctx, Mode mode) {
     switch (ctx) {
     case HINT_PLAIN:
         x = hint_key(x, "L-STICK", "Scroll");
-        if (g_hint_table) x = hint_key(x, "R-STICK", "Table");
+        if (g_hint_table) x = hint_key(x, "R-STICK", "Pan");
         x = hint_key(x, "L/R", "Session");
         hint_key(x, "SELECT", "Sessions");
         break;
     case HINT_PEEK:
         x = hint_glyph(x, GLYPH_SQUARE, "Show request");
         x = hint_key(x, "L-STICK", "Scroll");
-        if (g_hint_table) x = hint_key(x, "R-STICK", "Table");
+        if (g_hint_table) x = hint_key(x, "R-STICK", "Pan");
         hint_key(x, "SELECT", "Sessions");
         break;
     case HINT_APPROVAL:
@@ -473,6 +476,7 @@ static bool build_table(int slot, int b, int item) {
     UiTable *tb = &g_tables[ti];
     tb->doc = (signed char)slot;
     tb->block = (short)b;
+    tb->code = false;
     const MdText *h0 = &doc->cells[blk->cell_first], *h1 = &doc->cells[blk->cell_first + blk->n_cols - 1];
     MdMeasure mm = {doc, MDM_BODY, h0->start, h1->start + h1->len};
     tb->width = md_table_widths(doc, blk, TURN_W, 2 * MD_CELL_PAD_X, md_measure, &mm, tb->col_w, &tb->overflow);
@@ -528,13 +532,31 @@ static bool build_md(int slot, int item, const char *t) {
             continue;
         }
         if (blk->kind == MD_CODE) {
-            n = layout_wrap(base, tx->len, TURN_W - 2 * MD_CODE_INSET, measure_code, NULL, g_wrap_tmp, MAX_LINES);
+            if (g_n_tables >= UI_MAX_TABLES) { /* out of room: undo, the caller shows it plain */
+                g_n_dl = n_dl;
+                g_n_tables = n_tables;
+                g_n_cell_spans = n_spans;
+                return false;
+            }
+            int pi = g_n_tables++;
+            UiTable *pane = &g_tables[pi];
+            *pane = (UiTable){.doc = (signed char)slot, .block = (short)b, .code = true};
+            /* split at newlines only: a huge width never forces a wrap */
+            n = layout_wrap(base, tx->len, 1 << 30, measure_code, NULL, g_wrap_tmp, MAX_LINES);
             if (n == 0) g_wrap_tmp[n++] = (LineSpan){0, 0};
+            int widest = 0;
             for (int k = 0; k < n; k++) {
+                int w = gfx_text_width(F_MONO, MD_CODE_SIZE, base + g_wrap_tmp[k].start, g_wrap_tmp[k].len);
+                if (w > widest) widest = w;
                 unsigned fl = (k == 0 ? DLF_FIRST : 0) | (k == n - 1 ? DLF_LAST : 0);
                 int h = MD_LINE_H_CODE + (fl & DLF_FIRST ? MD_CODE_PAD : 0) + (fl & DLF_LAST ? MD_CODE_PAD : 0);
+                int before = g_n_dl;
                 md_push(DL_CODE, slot, b, item, tx->start + g_wrap_tmp[k].start, g_wrap_tmp[k].len, h, fl);
+                if (g_n_dl > before) g_dl[before].sub = (short)pi;
             }
+            pane->width = widest + 2 * MD_CODE_INSET;
+            pane->overflow = pane->width > TURN_W;
+            if (pane->overflow) md_push(DL_TABLE_BAR, slot, b, item, 0, pi, MD_TABLE_BAR_H, 0);
             continue;
         }
         bool heading = blk->kind == MD_HEADING, list = blk->kind == MD_BULLET || blk->kind == MD_NUMBER;
@@ -638,7 +660,20 @@ static void draw_md_line(const DLine *d, int y) {
     draw_styled(doc, d->start, d->len, x, y, blk->kind == MD_HEADING ? MDM_HEAD : MDM_BODY);
 }
 
-static int table_view_w(const UiTable *tb) { return tb->width < TURN_W ? tb->width : TURN_W; }
+static int table_view_w(const UiTable *tb) { return tb->code || tb->width > TURN_W ? TURN_W : tb->width; }
+
+static void draw_code_line(const DLine *d, int y, int bottom, const UiView *v) {
+    int pi = d->sub;
+    const UiTable *pane = &g_tables[pi];
+    int y0 = y < TURN_Y ? TURN_Y : y, y1 = y + d->h > bottom ? bottom : y + d->h;
+    if (y1 > y0) hit(HIT_TABLE, pi, PAD, y0, TURN_W, y1 - y0);
+    g_table_vis[pi] = true;
+    gfx_clip(PAD + 1, y0, PAD + TURN_W - 1, y1); /* keep the panel's edges */
+    int x = PAD + MD_CODE_INSET - (pane->overflow ? v->table_pan[pi] : 0);
+    int ty = y + (d->flags & DLF_FIRST ? MD_CODE_PAD : 0) + 5;
+    gfx_text(F_MONO, x, ty, C_TEXT, MD_CODE_SIZE, g_md[d->doc].text + d->start, d->len);
+    gfx_clip(0, TURN_Y, SCREEN_W, bottom);
+}
 
 static void draw_table_row(const DLine *d, int y, int bottom, const UiView *v) {
     int ti = d->len, r = d->start;
@@ -714,10 +749,11 @@ static void draw_turn(const Model *m, const Session *s, const UiView *v, int bot
             if (i == scroll || (d->flags & DLF_FIRST)) {
                 int top, bot;
                 block_extent(i, y, &top, &bot);
-                gfx_panel(PAD, top, TURN_W, bot - top, 8, C_LINE2, C_PANEL);
+                const UiTable *pane = &g_tables[d->sub];
+                bool focus = pane->overflow && v->table_focus == d->sub;
+                gfx_panel(PAD, top, TURN_W, bot - top, 8, focus ? C_AMBER : C_LINE2, C_PANEL);
             }
-            int ty = y + (d->flags & DLF_FIRST ? MD_CODE_PAD : 0) + 5;
-            gfx_text(F_MONO, PAD + MD_CODE_INSET, ty, C_TEXT, MD_CODE_SIZE, g_md[d->doc].text + d->start, d->len);
+            draw_code_line(d, y, bottom, v);
             break;
         }
         case DL_TABLE_ROW: {
