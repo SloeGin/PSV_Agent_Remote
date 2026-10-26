@@ -13,7 +13,8 @@ void list_open(SessionList *l, const Model *m) {
 
 ListResult list_handle(SessionList *l, Model *m, const Actions *a, uint64_t now, char removed_sid[64]) {
     if (l->cursor >= m->n) l->cursor = m->n > 0 ? m->n - 1 : 0;
-    int step = a->scroll_lines ? a->scroll_lines : a->sel_dir;
+    int lines = actions_cursor_lines(a);
+    int step = lines ? lines : a->sel_dir;
 
     if (l->confirming) {
         if (a->back) l->confirming = false;

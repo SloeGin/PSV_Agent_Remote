@@ -196,6 +196,18 @@ static void t_close(void) {
     CHECK(settings_handle(&s, &c, &a, 0) == SET_CLOSED);
 }
 
+static void t_rear_finger_up_moves_cursor_up(void) {
+    AppConfig c;
+    config_defaults(&c);
+    SettingsState s = at_row(&c, ROW_DIM);
+    int before = s.cursor;
+    Actions a = A();
+    a.scroll_lines = 1;
+    a.rear_lines = 1;
+    settings_handle(&s, &c, &a, 0);
+    CHECK(s.cursor == before - 1);
+}
+
 int main(void) {
     RUN(t_rows);
     RUN(t_sound_toggle);
@@ -212,5 +224,6 @@ int main(void) {
     RUN(t_cannot_delete_last);
     RUN(t_delete);
     RUN(t_close);
+    RUN(t_rear_finger_up_moves_cursor_up);
     return TEST_RESULT();
 }

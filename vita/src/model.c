@@ -109,6 +109,8 @@ unsigned model_on_status(Model *m, const char *sid, const StatusMsg *st, uint64_
     int i = get_or_create(m, sid, st->state, now, &created);
     Session *s = &m->s[i];
     unsigned ev = (!created && s->state != ST_IDLE && st->state == ST_IDLE) ? MEV_IDLE : 0;
+    /* Not for a session first seen already waiting: that is a retained status on (re)connect. */
+    if (!created && s->state != ST_WAITING && st->state == ST_WAITING) ev |= MEV_WAITING;
     if (st->state == ST_IDLE && (created || s->state != ST_IDLE)) s->idle_since_ms = now;
     s->state = st->state;
     if (st->project[0]) snprintf(s->project, sizeof s->project, "%s", st->project);

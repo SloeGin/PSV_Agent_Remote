@@ -48,7 +48,8 @@ typedef struct {
     int pan_px;          /* right stick left/right this frame; + reveals what is to the right */
     int table_dir;       /* right stick up/down: switch the table it pans */
     int touch_pan_px;    /* front sideways drag this frame; + = finger moved left */
-    int touch_x, touch_y; /* where that drag started */
+    int touch_x, touch_y; /* where that drag started (front or rear, in screen pixels) */
+    int rear_lines;       /* the part of scroll_lines that came from the rear panel */
 } Actions;
 
 typedef struct {
@@ -73,6 +74,11 @@ Actions input_map(InputState *s, const InputFrame *f);
 
 /* Settings switch: with the front panel off it neither scrolls nor taps. */
 void input_set_front_enabled(InputState *s, bool on);
+
+/* Lines to move a highlight or cursor by. Text follows scroll_lines on either
+ * panel, but a highlight follows the finger on the back the other way round:
+ * finger up on the rear panel moves it up, as if pointing through the Vita. */
+int actions_cursor_lines(const Actions *a);
 
 /* True if the frame produced anything to act on (a tap fires on a frame with no input). */
 bool actions_any(const Actions *a);

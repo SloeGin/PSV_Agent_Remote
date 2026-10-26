@@ -33,7 +33,8 @@ SettingsResult settings_handle(SettingsState *s, AppConfig *c, const Actions *a,
         s->open = false;
         return SET_CLOSED;
     }
-    int step = a->scroll_lines ? a->scroll_lines : a->sel_dir;
+    int lines = actions_cursor_lines(a);
+    int step = lines ? lines : a->sel_dir;
     if (step) {
         s->cursor += step > 0 ? 1 : -1;
         if (s->cursor < 0) s->cursor = 0;

@@ -277,6 +277,33 @@ static void t_tap_release_counts_as_action(void) {
     CHECK(!actions_any(&none));
 }
 
+static void t_rear_drag_reports_its_lines(void) {
+    InputState s;
+    input_init(&s);
+    InputFrame f = rear(900, 600, 0);
+    input_map(&s, &f);
+    f = rear(900, 480, 16); /* finger up on the back */
+    Actions a = input_map(&s, &f);
+    CHECK(a.scroll_lines >= 1 && a.rear_lines == a.scroll_lines);
+    CHECK(actions_cursor_lines(&a) == -a.scroll_lines); /* on the back, finger up moves the highlight up */
+    Actions b;
+    memset(&b, 0, sizeof b);
+    b.scroll_lines = 2;                                 /* stick / front: unchanged */
+    CHECK(actions_cursor_lines(&b) == 2);
+}
+
+static void t_rear_sideways_drag_pans_where_it_touches(void) {
+    InputState s;
+    input_init(&s);
+    InputFrame f = rear(960, 500, 0);  /* raw x 960 ≈ screen x 480 */
+    input_map(&s, &f);
+    f = rear(880, 504, 16);            /* 80 raw units left = 40 screen px */
+    Actions a = input_map(&s, &f);
+    CHECK(a.touch_pan_px == 40 - 12 && a.scroll_lines == 0);
+    CHECK(a.touch_x >= 470 && a.touch_x <= 490 && a.touch_y > 0);
+    CHECK(!a.tap);
+}
+
 int main(void) {
     RUN(t_tap_release_counts_as_action);
     RUN(t_buttons_edge);
@@ -297,5 +324,7 @@ int main(void) {
     RUN(t_start_opens_settings_once);
     RUN(t_front_drag_scrolls_no_tap);
     RUN(t_front_tap_on_release);
+    RUN(t_rear_drag_reports_its_lines);
+    RUN(t_rear_sideways_drag_pans_where_it_touches);
     return TEST_RESULT();
 }

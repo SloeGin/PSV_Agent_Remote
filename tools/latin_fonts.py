@@ -38,6 +38,20 @@ def decompose(font: TTFont) -> None:
         glyf[name].recalcBounds(glyf)
 
 
+# Characters these fonts lack, drawn with a glyph that looks the same. Claude
+# writes U+2212 MINUS SIGN for negative numbers; the en dash matches it.
+ALIASES = {0x2212: 0x2013}
+
+
+def add_aliases(font: TTFont) -> None:
+    for table in font["cmap"].tables:
+        if not table.isUnicode():
+            continue
+        for cp, like in ALIASES.items():
+            if cp not in table.cmap and like in table.cmap:
+                table.cmap[cp] = table.cmap[like]
+
+
 def subset_to(font: TTFont, dst: Path) -> None:
     opts = subset.Options()
     opts.layout_features = []
@@ -47,6 +61,7 @@ def subset_to(font: TTFont, dst: Path) -> None:
     sub.populate(unicodes=UNICODES)
     sub.subset(font)
     decompose(font)
+    add_aliases(font)
     font.save(dst)
 
 
@@ -60,10 +75,11 @@ def main(mono: str, mono_medium: str, grotesk_variable: str, out_dir: str) -> No
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--decompose"]:  # fix up already-built fonts in place
+    if sys.argv[1:2] == ["--fixup"]:  # apply the fix-ups to already-built fonts in place
         for path in sys.argv[2:]:
             f = TTFont(path)
             decompose(f)
+            add_aliases(f)
             f.save(path)
     else:
         main(*sys.argv[1:5])

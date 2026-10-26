@@ -110,9 +110,13 @@ Actions input_map(InputState *s, const InputFrame *f) {
     int tdir = ry > RSTICK_DEADZONE ? 1 : ry < -RSTICK_DEADZONE ? -1 : 0;
     a.table_dir = repeat(tdir, &s->table_dir, &s->table_next, f->now_ms, SEL_REPEAT_MS);
 
-    /* Rear panel: scrolling only. Front panel: drag scrolls, tap presses. */
+    /* Front panel: drag scrolls or pans, tap presses. */
+    /* Rear: scrolls, and a sideways drag pans the table or code block under the finger; never taps. */
+    int rear_x = clampi(f->rear_x, 0, REAR_X_MAX) * SCREEN_W / (REAR_X_MAX + 1);
     int rear_y = (clampi(f->rear_y, REAR_Y_MIN, REAR_Y_MAX) - REAR_Y_MIN) * (SCREEN_H - 1) / (REAR_Y_MAX - REAR_Y_MIN);
-    drag(&s->rear, f->rear_down, 0, rear_y, false, &a);
+    int before = a.scroll_lines;
+    drag(&s->rear, f->rear_down, rear_x, rear_y, true, &a);
+    a.rear_lines = a.scroll_lines - before;
     bool front_tap = drag(&s->front, s->front_enabled && f->front_down, f->front_x, f->front_y, true, &a);
     if (front_tap) {
         a.tap = true;
@@ -121,6 +125,8 @@ Actions input_map(InputState *s, const InputFrame *f) {
     }
     return a;
 }
+
+int actions_cursor_lines(const Actions *a) { return a->scroll_lines - 2 * a->rear_lines; }
 
 bool actions_any(const Actions *a) {
     return a->session_dir || a->scroll_lines || a->sel_dir || a->confirm || a->square || a->toggle_mode || a->sessions ||

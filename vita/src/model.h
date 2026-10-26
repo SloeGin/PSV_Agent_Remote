@@ -81,7 +81,7 @@ void turn_free(TurnItem *items, int n);
 #define LOCKOUT_MS 500
 #define HIDE_AFTER_MS (12ULL * 3600 * 1000)
 
-enum { MEV_NEW_REQUEST = 1, MEV_IDLE = 2 };
+enum { MEV_NEW_REQUEST = 1, MEV_IDLE = 2, MEV_WAITING = 4 }; /* WAITING: a session started waiting on a decision */
 
 typedef struct {
     char sid[64];

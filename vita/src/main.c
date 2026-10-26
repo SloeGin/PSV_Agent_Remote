@@ -176,6 +176,10 @@ static void handle_messages(App *app, uint64_t now) {
             if (app->cfg.sound) audio_play(SOUND_REQUEST);
             wake(app, now);
         }
+        if ((ev & MEV_WAITING) && app->cfg.mode == MODE_DESK) { /* the decision is on the computer */
+            if (app->cfg.sound) audio_play(SOUND_REQUEST);
+            wake(app, now);
+        }
         if (ev & MEV_IDLE) {
             if (app->cfg.sound) audio_play(SOUND_IDLE);
             snprintf(app->view.banner_project, sizeof app->view.banner_project, "%s", project_of(&app->model, sid));
@@ -281,7 +285,8 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
     bool sheet = r && !m->sheet_hidden;
     bool list = sheet && r->kind == REQ_QUESTION && r->step < r->n_questions;
     if (list) {
-        int d = a->scroll_lines ? a->scroll_lines : a->sel_dir;
+        int lines = actions_cursor_lines(a);
+        int d = lines ? lines : a->sel_dir;
         if (d) model_move_sel(m, d, now);
     } else {
         if (a->sel_dir) model_move_sel(m, a->sel_dir, now);

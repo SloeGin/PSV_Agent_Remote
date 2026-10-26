@@ -54,7 +54,7 @@ static unsigned decode(const char *s, int n, int *len) {
 }
 
 static bool is_latin(unsigned cp) {
-    return cp < 0x100 || (cp >= 0x2010 && cp < 0x2028) || (cp >= 0x2190 && cp < 0x2200) || cp == 0x25CF;
+    return cp < 0x100 || (cp >= 0x2010 && cp < 0x2028) || cp == 0x2212 || (cp >= 0x2190 && cp < 0x2200) || cp == 0x25CF;
 }
 
 static vita2d_font *font_for(FontFace f, int size, unsigned cp) { return font_at(is_latin(cp) ? (int)f : CJK, size); }

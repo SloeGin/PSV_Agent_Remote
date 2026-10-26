@@ -540,6 +540,18 @@ static void t_idle_since(void) {
     model_free(&m);
 }
 
+static void t_waiting_event(void) {
+    Model m;
+    model_init(&m, MODE_DESK);
+    StatusMsg r = st(ST_RUNNING, "p"), w = st(ST_WAITING, "p");
+    model_on_status(&m, "A", &r, 0);
+    CHECK(model_on_status(&m, "A", &w, 10) & MEV_WAITING); /* desk mode: the Mac is asking */
+    CHECK(!(model_on_status(&m, "A", &w, 20) & MEV_WAITING)); /* still waiting: no second chime */
+    model_on_status(&m, "A", &r, 30);
+    CHECK(model_on_status(&m, "A", &w, 40) & MEV_WAITING);
+    model_free(&m);
+}
+
 int main(void) {
     RUN(t_idle_since);
     RUN(t_summary_rev_changes);
@@ -573,5 +585,6 @@ int main(void) {
     RUN(t_hide_keeps_sessions_with_requests);
     RUN(t_capacity);
     RUN(t_status_clear_frees);
+    RUN(t_waiting_event);
     return TEST_RESULT();
 }
