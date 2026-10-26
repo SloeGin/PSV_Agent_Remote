@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Remote mock</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612; --line:#3a2f27; --line2:#2f2620;
+  --text:#f1e6d6; --text2:#c9bba9; --muted:#9c8f80; --dim:#6b5a4a;
+  --amber:#ffb35c; --amber-deep:#6b4a25; --teal:#5fc9b8; --teal-deep:#2d5b54; --rose:#ff7a6b;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Space Grotesk','Noto Sans SC',sans-serif; --cjk:'Noto Sans SC',sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0a08;color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px}
+h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4px}
+.sub{font-size:13px;color:var(--muted);margin:0 0 18px}
+.stage{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.vita{background:#0b0908;border:1px solid #2a221d;border-radius:120px;padding:26px 150px}
+.screenwrap{width:960px;height:544px;position:relative;transform-origin:top left}
+.scr{width:960px;height:544px;background:var(--bg);position:relative;overflow:hidden;border-radius:4px;user-select:none}
+.scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);z-index:40}
+/* top bar */
+.top{position:absolute;left:0;right:0;top:0;height:44px;background:var(--bar);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:6px;z-index:5}
+.logo{font:500 13px var(--mono);letter-spacing:2px;color:var(--amber);margin-right:12px;white-space:nowrap}
+.logo b{color:var(--muted);font-weight:400}
+.tabs{display:flex;gap:4px;overflow:hidden;flex:1;min-width:0}
+.tab{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;font-size:15px;color:var(--muted);white-space:nowrap;border:1px solid transparent}
+.tab.on{background:#2e2520;color:var(--text);border-color:var(--line)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ring{background:transparent;border:2px solid currentColor}
+.flash .dot{animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.15}}
+.meta{display:flex;align-items:center;gap:10px;font:12px var(--mono);color:var(--muted);white-space:nowrap}
+.badge{font:500 11px var(--mono);letter-spacing:1px;border-radius:5px;padding:2px 7px;border:1px solid}
+.badge.sofa{color:var(--amber);border-color:var(--amber-deep)} .badge.desk{color:var(--teal);border-color:var(--teal-deep)}
+.net{display:flex;align-items:center;gap:6px}
+/* hint strip */
+.hints{position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line2);background:#14100d;z-index:20}
+.hints span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.hints .r{margin-left:auto}
+.g{display:inline-block;width:14px;height:14px;vertical-align:-2px;flex:none}
+.lr{font:500 10px var(--mono);border:1px solid var(--dim);border-radius:3px;padding:0 4px;color:var(--text2)}
+/* turn view */
+.head{position:absolute;top:52px;left:16px;right:16px;display:flex;align-items:center;gap:12px;height:40px}
+.head .big{font-size:28px}
+.head .when{font:12px var(--mono);color:var(--muted)}
+.working{display:inline-flex;gap:4px}
+.working i{width:6px;height:16px;background:var(--teal);opacity:.25;animation:bar 1.2s infinite}
+.working i:nth-child(2){animation-delay:.2s}.working i:nth-child(3){animation-delay:.4s}
+@keyframes bar{30%{opacity:1}}
+.turnbox{position:absolute;top:100px;left:16px;right:30px;bottom:38px;overflow:hidden}
+.turnbox.withpeek{bottom:84px}
+.turn{position:absolute;left:0;right:0;top:0;transition:transform .12s}
+.item{margin:0 0 14px}
+.who{font:500 11px var(--mono);letter-spacing:1.5px;margin-bottom:3px}
+.who.you{color:var(--amber)} .who.claude{color:var(--teal)}
+.utext{font:17px/29px var(--cjk);color:var(--text);border-left:3px solid var(--amber-deep);padding-left:12px}
+.ctext{font:17px/29px var(--cjk);color:var(--text2);white-space:pre-wrap}
+.tool{font:14px/24px var(--mono);color:var(--muted);margin:-6px 0 12px}
+.tool b{color:var(--teal);font-weight:400}
+.sbar{position:absolute;right:16px;width:4px;background:var(--line2);border-radius:2px}
+.sbar i{position:absolute;left:0;right:0;background:var(--dim);border-radius:2px}
+.empty{position:absolute;inset:44px 0 30px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.empty .t1{font-size:22px} .empty .t2{font-size:14px;color:var(--muted);max-width:520px;line-height:22px}
+/* bottom sheet */
+.sheet{position:absolute;left:10px;right:10px;top:56px;bottom:30px;background:var(--sheet);border:1px solid var(--line);border-bottom:none;border-radius:14px 14px 0 0;z-index:10;transition:transform .26s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column}
+.sheet.hidden{transform:translateY(calc(100% - 46px))}
+.sheet.gone{transform:translateY(110%)}
+.peek{height:46px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line2);position:relative}
+.peek::before{content:"";position:absolute;left:50%;top:5px;width:36px;height:3px;margin-left:-18px;border-radius:2px;background:var(--line)}
+.peek .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px}
+.peek .side{font:12px var(--mono);color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.chip{font:500 11px var(--mono);letter-spacing:1px;color:var(--bg);background:var(--amber);border-radius:4px;padding:2px 8px;flex:none}
+.chip.q{background:var(--teal)} .chip.dim{background:var(--dim)}
+.sbody{flex:1;position:relative;overflow:hidden}
+.codebox{position:absolute;top:12px;left:16px;right:28px;bottom:84px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.code{position:absolute;left:16px;right:16px;top:10px;font:17px/29px var(--mono);color:var(--text);white-space:pre-wrap;word-break:break-all;transition:transform .12s}
+.code .p{color:var(--teal)} .code .c{color:var(--muted);font-family:var(--cjk)} .code .k{color:var(--text2)} .code .del{color:#ff9a8f} .code .add{color:#8fe3c4}
+.cwd{position:absolute;left:18px;bottom:70px;font:11px var(--mono);color:var(--dim)}
+.pg{position:absolute;right:16px;font:11px var(--mono);color:var(--dim)}
+.opts{position:absolute;left:0;right:0;bottom:0;height:64px;border-top:1px solid var(--line2);display:flex;gap:8px;padding:11px 14px}
+.opt{flex:1;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--text2);position:relative;overflow:hidden;white-space:nowrap}
+.opt.sel{background:var(--amber);border-color:var(--amber);color:var(--bg)}
+.opt.sel.danger{background:var(--rose);border-color:var(--rose)}
+.arm{position:absolute;left:0;bottom:0;height:3px;background:var(--bg);opacity:.5}
+.optnote{flex:1;display:flex;align-items:center;gap:10px;font-size:15px;color:var(--text2)}
+/* question */
+.qtext{position:absolute;top:12px;left:18px;right:18px;font:19px/30px var(--cjk);color:var(--text)}
+.qlist{position:absolute;top:58px;left:14px;right:14px;bottom:10px;overflow:hidden}
+.qrow{display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:9px;border:1px solid transparent;margin-bottom:4px}
+.qinner{position:absolute;left:0;right:0;top:0;transition:transform .12s}
+.qrow.on{background:#2e2520;border-color:var(--line)}
+.qrow .lab{font-size:17px;color:var(--text)}
+.qrow .desc{font-size:13px;color:var(--muted);margin-top:2px}
+.qrow .box{width:18px;height:18px;border:2px solid var(--dim);border-radius:4px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--bg);font:700 12px var(--mono)}
+.qrow .box.radio{border-radius:50%}
+.qrow .box.ck{background:var(--teal);border-color:var(--teal)}
+.qrow .box.rd{border-color:var(--teal);box-shadow:inset 0 0 0 3px var(--sheet);background:var(--teal)}
+.qrow.meta .lab{color:var(--amber)} .qrow.mac .lab{color:var(--muted)}
+.qrow .badge2{margin-left:auto;font:11px var(--mono);color:var(--muted)}
+.arm2{height:2px;background:var(--amber);opacity:.6;margin-top:4px}
+.review{position:absolute;top:14px;left:18px;right:18px}
+.review .r{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--line2);font-size:17px}
+.review .r .h{font:500 11px var(--mono);letter-spacing:1px;color:var(--muted);width:120px;flex:none;padding-top:4px}
+/* overlays */
+.banner{position:absolute;left:16px;right:16px;top:52px;height:44px;border-radius:9px;background:#1f2d29;border:1px solid var(--teal-deep);display:flex;align-items:center;gap:10px;padding:0 14px;font-size:15px;z-index:25;animation:drop .2s}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;background:#2e2520;border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:14px;z-index:25;white-space:nowrap}
+@keyframes drop{from{transform:translateY(-10px);opacity:0}}
+.cursor{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(241,230,214,.85);border-radius:50%;z-index:30;pointer-events:none}
+.cursor::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:var(--text);border-radius:50%}
+.dimmed{position:absolute;inset:0;background:#000;z-index:35;display:flex;align-items:flex-end;justify-content:flex-end;padding:20px;font:12px var(--mono);color:#2b2420}
+.ime{position:absolute;inset:0;background:rgba(10,8,6,.75);z-index:28;display:flex;align-items:center;justify-content:center}
+.ime .box{width:560px;background:var(--bar);border:1px solid var(--line);border-radius:12px;padding:18px}
+.ime .lab{font:11px var(--mono);letter-spacing:2px;color:var(--muted);margin-bottom:10px}
+.ime input{width:100%;font:18px var(--sans);background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;outline:none}
+.ime .h{font:12px var(--mono);color:var(--muted);margin-top:10px}
+/* settings */
+.set-h{position:absolute;top:56px;left:16px;font:500 11px var(--mono);letter-spacing:2px;color:var(--muted)}
+.rows{position:absolute;top:80px;left:16px;right:16px}
+.row{height:44px;display:flex;align-items:center;gap:12px;padding:0 14px;border-radius:8px;font-size:16px;color:var(--text2)}
+.row.on{background:#2e2520;color:var(--text);outline:1px solid var(--line)}
+.row .tag{margin-left:auto;font:12px var(--mono)} .row .val{margin-left:auto;font:13px var(--mono);color:var(--amber)}
+.sep{height:1px;background:var(--line2);margin:8px 0}
+/* session list */
+.lrow{display:flex;align-items:center;gap:14px;height:58px;padding:0 14px;border-radius:9px;border:1px solid transparent;margin-bottom:4px}
+.lrow.on{background:#2e2520;border-color:var(--line)}
+.lrow .nm{font-size:17px;color:var(--text)}
+.lrow .cw{font:11px var(--mono);color:var(--dim);margin-top:2px}
+.lrow .st{margin-left:auto;font:12px var(--mono);color:var(--muted);text-align:right}
+.modal{position:absolute;inset:0;background:rgba(10,8,6,.72);z-index:27;display:flex;align-items:center;justify-content:center}
+.modal .box{width:520px;background:var(--bar);border:1px solid var(--line);border-radius:12px;padding:20px 20px 16px}
+.modal .t{font-size:19px;margin-bottom:8px}
+.modal .d{font-size:14px;color:var(--muted);line-height:21px;margin-bottom:16px}
+.modal .bs{display:flex;gap:10px}
+.modal .b{flex:1;height:42px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;color:var(--text2);position:relative;overflow:hidden}
+.modal .b.sel{background:var(--amber);border-color:var(--amber);color:var(--bg)}
+.modal .b.sel.danger{background:var(--rose);border-color:var(--rose)}
+/* side panel */
+.sidep{width:360px;font-size:13px;color:var(--text2)}
+.card{background:#15110e;border:1px solid #2a221d;border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.card h2{font:500 11px var(--mono);letter-spacing:2px;color:var(--muted);margin:0 0 10px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}
+kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-radius:5px;padding:1px 6px;color:var(--text)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btns button{font:12px var(--sans);background:#221b16;color:var(--text);border:1px solid #3a2f27;border-radius:7px;padding:6px 10px;cursor:pointer}
+.btns button:hover{border-color:var(--amber)}
+.pads{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.pad{width:44px;height:44px;border-radius:50%;background:#1d1713;border:1px solid #3a2f27;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.pad svg{width:20px;height:20px}
+.small{font-size:12px;color:var(--muted);line-height:18px}
+</style>
+</head>
+<body>
+<h1>AGENT//REMOTE — UX MOCK</h1>
+<p class="sub">Native 960×544 Vita screen. Keyboard, mouse and the panel on the right drive it like the real device.</p>
+
+<div class="stage">
+  <div class="vita"><div class="screenwrap" id="sw"><div class="scr" id="scr">
+    <div id="top"></div>
+    <div id="main"></div>
+    <div class="sheet gone" id="sheet"><div class="peek" id="peek"></div><div class="sbody" id="sbody"></div></div>
+    <div id="hints"></div>
+    <div id="over"></div>
+    <div class="scan"></div>
+  </div></div></div>
+
+  <div class="sidep">
+    <div class="card">
+      <h2>CONTROLS</h2>
+      <div class="keys">
+        <kbd>Q</kbd><span><span class="lr">L</span> / <kbd>E</kbd> <span class="lr">R</span> — switch session</span>
+        <kbd>W S</kbd><span>Left stick — scroll</span>
+        <kbd>↑ ↓</kbd><span>D-pad — move in lists (scrolls otherwise)</span>
+        <kbd>A D ← →</kbd><span>Right stick — move selection</span>
+        <kbd>K</kbd><span id="kx"></span>
+        <kbd>L</kbd><span id="ko"></span>
+        <kbd>I</kbd><span id="kt"></span>
+        <kbd>J</kbd><span id="ks"></span>
+        <kbd>H</kbd><span>SELECT — session list (remove sessions there)</span>
+        <kbd>Enter</kbd><span>START — settings</span>
+        <kbd>drag</kbd><span>Front touch — drag scrolls, tap highlights</span>
+        <kbd>Shift</kbd><span>+ move mouse — rear touch (absolute)</span>
+      </div>
+      <div class="pads" id="pads"></div>
+    </div>
+    <div class="card">
+      <h2>SIMULATE</h2>
+      <div class="btns" id="sims">
+        <button data-sim="bash">Bash approval</button>
+        <button data-sim="edit">Edit approval</button>
+        <button data-sim="q1">Question (single)</button>
+        <button data-sim="q2">Questions (2, multi)</button>
+        <button data-sim="other">Approval in other session</button>
+        <button data-sim="say">Claude says more</button>
+        <button data-sim="idle">Turn finishes</button>
+        <button data-sim="expire">Expire pending</button>
+        <button data-sim="clear">Answered on Mac</button>
+        <button data-sim="net">Drop / restore network</button>
+        <button data-sim="dim">Dim screen</button>
+        <button data-sim="none">No sessions</button>
+        <button data-sim="reset">Reset demo</button>
+      </div>
+      <p class="small" style="margin:10px 0 0">Decisions open as a sheet over this turn's conversation. □ hides it (one line stays at the bottom) and brings it back. While it's hidden, ✕ does nothing. Each time the sheet appears, ✕ is locked for 0.5 s and nothing is highlighted.</p>
+    </div>
+    <div class="card">
+      <h2>SCALE</h2>
+      <div class="btns"><button data-scale="1">100%</button><button data-scale="0.75">75%</button><button data-scale="0.6">60%</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const G = {
+  x:`<svg class="g" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="#7aa7ff" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+  o:`<svg class="g" viewBox="0 0 14 14"><circle cx="7" cy="7" r="4.8" fill="none" stroke="#ff6b6b" stroke-width="2.2"/></svg>`,
+  t:`<svg class="g" viewBox="0 0 14 14"><path d="M7 2.4L12.2 11.3H1.8z" fill="none" stroke="#3fd0a6" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+  s:`<svg class="g" viewBox="0 0 14 14"><rect x="2.6" y="2.6" width="8.8" height="8.8" fill="none" stroke="#e48bd2" stroke-width="2.2"/></svg>`,
+};
+document.getElementById('kx').innerHTML = `${G.x} Cross — confirm`;
+document.getElementById('ko').innerHTML = `${G.o} Circle — back`;
+document.getElementById('kt').innerHTML = `${G.t} Triangle — desk / sofa mode`;
+document.getElementById('ks').innerHTML = `${G.s} Square — hide / show the decision sheet`;
+document.getElementById('pads').innerHTML = ['t','s','x','o'].map(k=>`<div class="pad" data-pad="${k}">${G[k].replace('class="g"','')}</div>`).join('');
+
+const COLORS = {running:'#5fc9b8', waiting:'#ffb35c', idle:'#9c8f80'};
+const APPROVAL_OPTS = [
+  {id:'allow', label:'Allow'}, {id:'allow_always', label:'Allow for session'},
+  {id:'deny', label:'Deny', danger:true}, {id:'deny_note', label:'Deny with note…', danger:true}, {id:'deny_stop', label:'Deny and stop', danger:true},
+];
+const LINE = 29, LOCKOUT = 500, TIMEOUT = 120;
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+let S, nextRid = 1;
+const now = () => performance.now();
+function approval(tool, title, body, cwd){ return {rid:'r'+(nextRid++), kind:'approval', tool, title, body, cwd, recv:now(), sent:null, timeout:TIMEOUT, opts:APPROVAL_OPTS}; }
+function question(qs){ return {rid:'r'+(nextRid++), kind:'question', tool:'QUESTION', questions:qs, step:0, answers:qs.map(()=>({sel:new Set(), other:''})), recv:now(), sent:null, timeout:TIMEOUT}; }
+
+const TURN_A = [
+  {who:'you', text:'把 PSV 端的提问页做出来，选项多的时候也要能看清楚。'},
+  {who:'claude', text:'好的。我先读一下现在的 ui.c 和 main.c，看看请求页是怎么画的。'},
+  {who:'tool', tool:'Read', text:'vita/src/ui.c'},
+  {who:'tool', tool:'Read', text:'vita/src/main.c'},
+  {who:'claude', text:'现在的请求页只支持一排横向按钮。提问最多有 4 个选项，每个还有说明，横排放不下，所以我打算改成竖排列表，并且先清理依赖再重新构建一次，确认工具链没问题。'},
+];
+const TURN_B = [
+  {who:'you', text:'Add retry with backoff to the webhook sender.'},
+  {who:'claude', text:'Looking at how the sender handles failures today.'},
+  {who:'tool', tool:'Grep', text:'"sendWebhook" src/'},
+  {who:'tool', tool:'Read', text:'src/webhooks/sender.ts'},
+];
+const TURN_C = [
+  {who:'you', text:'总结一下今天合并的改动。'},
+  {who:'claude', text:`Mac 端 hook 已合并到本地 main，合并后 47 个测试全部通过，feat/mac-hook 分支已删除。
+
+还没做的：
+• hook 还没写进你的 ~/.claude/settings.json。要启用的话，在项目根目录运行 install.py。
+• 还没用真实的 Claude Code 跑过批准。原因是这台 Mac 上的 claude 命令行没登录。
+• PSV 端还没开始。下一步是计划 B，前 8 个任务在 Mac 上就能写和测。`},
+];
+
+function reset(){
+  nextRid = 1;
+  S = {
+    sessions:[
+      {sid:'a', project:'psv-remote', state:'waiting', turn:TURN_A.slice(), pending:[approval('Bash','rm -rf node_modules && npm ci', `rm -rf node_modules && npm ci && npm run build -- --mode=production
+<span class="c"># 清理依赖并重新安装，然后构建生产版本</span>`, '~/Workspace/fun-projects/PSV_agent_remote')], flash:false, since:now()},
+      {sid:'b', project:'api-server', state:'running', turn:TURN_B.slice(), pending:[], flash:false, since:now()},
+      {sid:'c', project:'notes', state:'idle', turn:TURN_C.slice(), pending:[], flash:false, since:now()-120000},
+    ],
+    cur:0, sel:-1, shownKey:'', shownAt:now(), mode:'sofa', net:'up', scroll:0, sheetScroll:0, sheetHidden:false,
+    list:{open:false, cursor:0, confirm:null},
+    settings:{open:false, cursor:0, brokers:[{host:'192.168.2.222',port:1883},{host:'10.0.0.8',port:1883}], active:0, connected:0, sound:true, dim:5},
+    ime:null, banner:null, toast:null, dimmed:false, cursor:null, lastInput:now(),
+  };
+}
+reset();
+
+const $ = id => document.getElementById(id);
+const cur = () => S.sessions[S.cur];
+const pend = () => cur() && cur().pending[0];
+const expired = r => (now()-r.recv)/1000 > r.timeout;
+const live = r => r && !r.sent && !expired(r);
+function ago(t){ const s=Math.max(0,Math.round((now()-t)/1000)); return s<60? s+'s ago' : Math.round(s/60)+'m ago'; }
+function toast(msg){ S.toast = {msg, until:now()+1800}; }
+function wake(){ S.lastInput=now(); if(S.dimmed){ S.dimmed=false; return true; } return false; }
+function arm(){ S.shownAt = now(); S.sel = -1; }
+function syncView(){
+  const r = pend();
+  const key = (cur()?cur().sid:'') + '/' + (r ? r.rid + ':' + (r.kind==='question'?r.step:'') : '');
+  if (key !== S.shownKey){
+    const sameSession = S.shownKey.split('/')[0] === (cur()?cur().sid:'');
+    S.shownKey = key; arm(); S.sheetScroll = 0;
+    if (!sameSession) S.scroll = 0;
+    if (r && !(r.kind==='question' && r.step>0)) S.sheetHidden = false;
+  }
+}
+
+/* ---------- question helpers ---------- */
+function qRows(r){
+  if (r.step==='review') return [];
+  const q = r.questions[r.step];
+  const rows = q.options.map((o,i)=>({k:'opt', i, ...o}));
+  rows.push({k:'other', label:'Other…', description:'Type your own answer'});
+  if (q.multi) rows.push({k:'next', label: r.step===r.questions.length-1 ? 'Review answers' : 'Next question'});
+  rows.push({k:'mac', label:'Answer on Mac'});
+  return rows;
+}
+function answerText(r, qi){
+  const q=r.questions[qi], a=r.answers[qi];
+  const parts=[...a.sel].sort().map(i=>q.options[i].label);
+  if (a.other) parts.push('“'+a.other+'”');
+  return parts.join(', ') || '—';
+}
+function advance(r){ r.step = r.step===r.questions.length-1 ? 'review' : r.step+1; }
+
+/* ---------- actions ---------- */
+function sw(d){ if(!S.sessions.length) return; S.cur=(S.cur+d+S.sessions.length)%S.sessions.length; cur().flash=false; }
+function maxScroll(el){ if(!el) return 0; const box=el.parentElement.clientHeight-12; return Math.max(0, Math.ceil((el.scrollHeight-box)/LINE)); }
+function scrollBy(d){
+  const r=pend();
+  if (r && !S.sheetHidden && r.kind==='approval'){ S.sheetScroll=Math.max(0,Math.min(maxScroll($('sbody').querySelector('.code')),S.sheetScroll+d)); return; }
+  if (r && !S.sheetHidden) return;
+  S.scroll=Math.max(0,Math.min(maxScroll($('main').querySelector('.turn')),S.scroll+d));
+}
+function moveSel(d){
+  const r=pend(); if(!live(r)||S.sheetHidden) return;
+  const n = r.kind==='approval' ? r.opts.length : (r.step==='review' ? 3 : qRows(r).length);
+  S.sel = S.sel<0 ? (d>0?0:n-1) : Math.max(0,Math.min(n-1,S.sel+d));
+}
+function finish(r, sent){
+  r.sent = sent; S.sel=-1;
+  setTimeout(()=>{ const s=S.sessions.find(x=>x.pending.includes(r)); if(!s) return; s.pending.splice(s.pending.indexOf(r),1);
+    if(!s.pending.length){ s.state='running'; if(sent.note) s.turn.push({who:'you', text:'(denied) '+sent.note}); }
+    render(); }, 1400);
+}
+function confirm(){
+  const r=pend();
+  if (!r || S.sheetHidden || !live(r)) return;
+  if (S.sel<0){ toast('Pick an option first'); return; }
+  if (now()-S.shownAt < LOCKOUT) return;
+  if (r.kind==='approval'){
+    const o=r.opts[S.sel];
+    if (o.id==='deny_note'){ S.ime={label:'NOTE FOR CLAUDE', placeholder:'Run the tests before deleting anything', value:'', onok:v=>finish(r,{...o, label:'Denied with note', note:v})}; return; }
+    finish(r, o); return;
+  }
+  if (r.step==='review'){
+    if (S.sel===0) finish(r,{label:'Answers sent'});
+    else if (S.sel===1){ r.step=r.questions.length-1; }
+    else finish(r,{label:'Answering on Mac', mac:true});
+    return;
+  }
+  const row=qRows(r)[S.sel], q=r.questions[r.step], a=r.answers[r.step];
+  if (row.k==='opt'){
+    if (q.multi){ a.sel.has(row.i)?a.sel.delete(row.i):a.sel.add(row.i); return; }
+    a.sel=new Set([row.i]); a.other=''; advance(r); return;
+  }
+  if (row.k==='other'){ S.ime={label:'YOUR ANSWER', placeholder:'Type an answer', value:a.other, onok:v=>{ a.other=v; if(!q.multi){ a.sel=new Set(); advance(r);} }}; return; }
+  if (row.k==='next'){ if(!a.sel.size && !a.other){ toast('Pick at least one'); return; } advance(r); return; }
+  if (row.k==='mac') finish(r,{label:'Answering on Mac', mac:true});
+}
+function back(){
+  const r=pend(); if(!live(r)||S.sheetHidden||r.kind!=='question') return;
+  if (r.step==='review') r.step=r.questions.length-1; else if (r.step>0) r.step--;
+}
+function toggleSheet(){ if(!pend()) return; S.sheetHidden=!S.sheetHidden; if(!S.sheetHidden) arm(); }
+function toggleMode(){ S.mode = S.mode==='sofa'?'desk':'sofa'; toast(S.mode==='desk' ? 'Desk mode · approvals stay on your Mac' : 'Sofa mode · approvals come to this Vita'); }
+/* session list (SELECT) */
+function stateText(x){
+  if (x.pending.length) return `Needs you · ${x.pending.length} pending`;
+  if (x.state==='running') return 'Working';
+  if (x.state==='waiting') return 'Waiting on your Mac';
+  return 'Idle · ' + ago(x.since);
+}
+function openList(){ S.list={open:true, cursor:Math.max(0,S.cur), confirm:null}; }
+function listPress(btn){
+  const L=S.list, n=S.sessions.length;
+  if (L.confirm){
+    if (btn==='o') L.confirm=null;
+    else if (['left','right','up','down'].includes(btn)) L.confirm.sel = L.confirm.sel===0?1:0;
+    else if (btn==='x' && now()-L.confirm.at>=LOCKOUT){
+      if (L.confirm.sel===1){ const x=S.sessions[L.cursor]; S.sessions.splice(L.cursor,1); if(S.cur>=S.sessions.length) S.cur=Math.max(0,S.sessions.length-1); L.cursor=Math.min(L.cursor,Math.max(0,S.sessions.length-1)); toast(`Removed ${x.project}`); }
+      L.confirm=null;
+    }
+    return;
+  }
+  if (btn==='o'||btn==='select') L.open=false;
+  else if ((btn==='up'||btn==='left') && n) L.cursor=Math.max(0,L.cursor-1);
+  else if ((btn==='down'||btn==='right') && n) L.cursor=Math.min(n-1,L.cursor+1);
+  else if (btn==='x' && n){ S.cur=L.cursor; S.sessions[S.cur].flash=false; L.open=false; }
+  else if (btn==='s' && n){
+    const x=S.sessions[L.cursor];
+    if (x.pending.length||x.state==='waiting'){ toast('Answer its request first'); return; }
+    L.confirm={sel:0, at:now()};
+  }
+  else if (btn==='t') toggleMode();
+}
+/* settings */
+function setRows(){ return [...S.settings.brokers.map((x,i)=>({k:'broker',i})),{k:'add'},{k:'sound'},{k:'dim'},{k:'exit'}]; }
+function settingsConfirm(){
+  const row=setRows()[S.settings.cursor], st=S.settings;
+  if (row.k==='broker'){ st.active=row.i; st.connected=-1; S.net='connecting'; setTimeout(()=>{ st.connected=row.i; S.net='up'; render(); }, 900); }
+  else if (row.k==='add') S.ime={label:'ADD BROKER · IP:PORT', placeholder:'192.168.1.20:1883', value:'', mono:true, validate:addBroker};
+  else if (row.k==='sound') st.sound=!st.sound;
+  else if (row.k==='dim'){ const v=[1,5,10,0]; st.dim=v[(v.indexOf(st.dim)+1)%v.length]; }
+  else toast('Closing Agent Remote…');
+}
+function addBroker(v){
+  const m=v.trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::(\d{1,5}))?$/);
+  if(!m || m.slice(1,5).some(x=>+x>255) || (m[5]&&(+m[5]<1||+m[5]>65535))) return 'Use an IP like 192.168.1.20:1883';
+  const b={host:m.slice(1,5).join('.'),port:+(m[5]||1883)};
+  if (S.settings.brokers.some(x=>x.host===b.host&&x.port===b.port)) return 'That broker is already in the list';
+  if (S.settings.brokers.length>=8) return 'The list holds 8 brokers';
+  S.settings.brokers.push(b); toast('Broker added'); return null;
+}
+function settingsDelete(){
+  const row=setRows()[S.settings.cursor], st=S.settings; if(row.k!=='broker') return;
+  if (st.brokers.length===1){ toast('Keep at least one broker'); return; }
+  st.brokers.splice(row.i,1); if(st.active>=st.brokers.length) st.active=0; st.connected=Math.min(st.connected,st.brokers.length-1);
+}
+function imeOk(){
+  const v=S.ime.value.trim();
+  if (S.ime.validate){ const err=S.ime.validate(v); if(err){ S.ime.err=err; return; } S.ime=null; return; }
+  if (!v){ S.ime.err='Type something first'; return; }
+  const ok=S.ime.onok; S.ime=null; ok(v);
+}
+
+function press(btn){
+  if (wake()) return render();
+  if (S.ime){ if(btn==='o') S.ime=null; else if(btn==='x') imeOk(); return render(); }
+  if (S.list.open){ listPress(btn); return render(); }
+  if (S.settings.open){
+    if (btn==='o'||btn==='start') S.settings.open=false;
+    else if (btn==='x') settingsConfirm();
+    else if (btn==='s') settingsDelete();
+    else if (btn==='up'||btn==='left') S.settings.cursor=Math.max(0,S.settings.cursor-1);
+    else if (btn==='down'||btn==='right') S.settings.cursor=Math.min(setRows().length-1,S.settings.cursor+1);
+    else if (btn==='t') toggleMode();
+    return render();
+  }
+  const r=pend(), list = r && !S.sheetHidden && r.kind==='question';
+  ({L:()=>sw(-1), R:()=>sw(1), lup:()=>scrollBy(-1), ldown:()=>scrollBy(1),
+    up:()=> list ? moveSel(-1) : scrollBy(-1), down:()=> list ? moveSel(1) : scrollBy(1),
+    left:()=>moveSel(-1), right:()=>moveSel(1), x:confirm, o:back, t:toggleMode, s:toggleSheet, select:openList,
+    start:()=>{ S.settings.open=true; S.settings.cursor=S.settings.active; }}[btn]||(()=>{}))();
+  render();
+}
+
+/* ---------- render ---------- */
+function topHtml(){
+  const netCol = S.net==='up'?'var(--teal)':S.net==='connecting'?'var(--amber)':'var(--rose)';
+  const netTxt = S.net==='up'?'LINK':S.net==='connecting'?'LINKING':'OFFLINE';
+  const tabs = (S.settings.open||S.list.open) ? '' : S.sessions.map((s,i)=>{
+    const col=COLORS[s.state], ring=s.state==='idle';
+    return `<div class="tab ${i===S.cur?'on':''} ${s.flash?'flash':''}"><span class="dot${ring?' ring':''}" style="${ring?'color:'+col:'background:'+col}"></span>${s.project}</div>`; }).join('');
+  return `<div class="top"><span class="logo">AGENT<b>//</b>REMOTE</span><div class="tabs">${tabs}</div>
+    <div class="meta">${S.sessions.length&&!S.settings.open?`<span>${S.cur+1}/${S.sessions.length}</span>`:''}
+    <span class="badge ${S.mode}">${S.mode.toUpperCase()}</span><span class="net"><span class="dot" style="background:${netCol}"></span>${netTxt}</span></div></div>`;
+}
+function hintsHtml(){
+  const other = S.mode==='sofa'?'Desk':'Sofa';
+  const tail = `<span class="r">${G.t} ${other} mode</span><span><span class="lr">START</span> Settings</span>`;
+  if (S.ime) return `<div class="hints"><span>${G.x} OK</span><span>${G.o} Cancel</span></div>`;
+  if (S.list.open && S.list.confirm) return `<div class="hints"><span>${G.x} Confirm</span><span><span class="lr">←→</span> Choose</span><span>${G.o} Cancel</span></div>`;
+  if (S.list.open) return `<div class="hints"><span>${G.x} Open</span><span><span class="lr">↑↓</span> Choose</span><span>${G.s} Remove</span><span>${G.o} Close</span></div>`;
+  if (S.settings.open) return `<div class="hints"><span>${G.x} Select</span><span>${G.s} Remove broker</span><span>${G.o} Back</span><span class="r"><span class="lr">START</span> Close</span></div>`;
+  const r=pend();
+  if (r && !S.sheetHidden){
+    const choose = r.kind==='question' && r.step!=='review' ? `<span><span class="lr">↑↓</span> Choose</span>` : `<span><span class="lr">LEFT/RIGHT</span> Choose</span>`;
+    const backH = r.kind==='question' ? `<span>${G.o} Back</span>` : '';
+    return `<div class="hints"><span>${G.x} Confirm</span>${choose}${backH}<span>${G.s} Hide</span><span><span class="lr">SELECT</span> Sessions</span>${tail}</div>`;
+  }
+  if (r) return `<div class="hints"><span>${G.s} Show request</span><span><span class="lr">L-STICK</span> Scroll</span><span><span class="lr">SELECT</span> Sessions</span>${tail}</div>`;
+  return `<div class="hints"><span><span class="lr">L-STICK</span> Scroll</span><span><span class="lr">L</span><span class="lr">R</span> Session</span><span><span class="lr">SELECT</span> Sessions</span>${tail}</div>`;
+}
+function headHtml(s){
+  if (s.state==='running') return `<div class="head"><span class="working"><i></i><i></i><i></i></span><span class="big">Working</span><span class="when">${s.project}</span></div>`;
+  if (s.state==='waiting') return `<div class="head"><span class="dot" style="background:var(--amber);width:13px;height:13px"></span><span class="big">${S.mode==='desk'?'Waiting on your Mac':'Needs you'}</span><span class="when">${s.project}</span></div>`;
+  return `<div class="head"><span class="dot ring" style="color:var(--teal);width:15px;height:15px"></span><span class="big">Idle</span><span class="when">finished ${ago(s.since)}</span></div>`;
+}
+function turnHtml(s){
+  return s.turn.map(it=> it.who==='tool'
+    ? `<div class="tool"><b>▸</b> ${it.tool}  ${esc(it.text)}</div>`
+    : `<div class="item"><div class="who ${it.who}">${it.who==='you'?'YOU':'CLAUDE'}</div><div class="${it.who==='you'?'utext':'ctext'}">${esc(it.text)}</div></div>`).join('')
+    + (s.state==='waiting' && S.mode==='desk' ? `<div class="tool" style="color:var(--teal)">Desk mode is on, so Claude asked on your Mac. Press ${G.t} to send decisions here.</div>` : '');
+}
+function listHtml(){
+  const rows = S.sessions.map((x,i)=>{
+    const col=COLORS[x.state], ring=x.state==='idle' && !x.pending.length;
+    return `<div class="lrow ${i===S.list.cursor?'on':''}"><span class="dot${ring?' ring':''}" style="${ring?'color:'+col:'background:'+(x.pending.length?'var(--amber)':col)};width:11px;height:11px"></span>
+      <div><div class="nm">${x.project}${i===S.cur?' <span style="font:11px var(--mono);color:var(--dim)">· showing</span>':''}</div><div class="cw">~/Workspace/${x.project}</div></div>
+      <div class="st" style="${x.pending.length?'color:var(--amber)':''}">${stateText(x)}</div></div>`; }).join('');
+  return `<div class="set-h">SESSIONS · ${S.sessions.length}</div><div class="rows">${rows || '<div class="row" style="color:var(--muted)">No sessions</div>'}</div>`;
+}
+function mainHtml(){
+  if (S.list.open) return listHtml();
+  if (S.settings.open){
+    const st=S.settings;
+    const rows=setRows().map((row,idx)=>{ const on=idx===st.cursor?'on':'';
+      if(row.k==='broker'){ const b=st.brokers[row.i]; const tag=row.i===st.connected?`<span class="tag" style="color:var(--teal)">● CONNECTED</span>`:row.i===st.active?`<span class="tag" style="color:var(--amber)">CONNECTING…</span>`:''; return `<div class="row ${on}"><span style="font-family:var(--mono)">${b.host}:${b.port}</span>${tag}</div>`; }
+      if(row.k==='add') return `<div class="row ${on}" style="color:var(--amber)">+ Add broker</div><div class="sep"></div>`;
+      if(row.k==='sound') return `<div class="row ${on}">Sounds<span class="val">${st.sound?'ON':'OFF'}</span></div>`;
+      if(row.k==='dim') return `<div class="row ${on}">Dim screen after<span class="val">${st.dim?st.dim+' MIN':'NEVER'}</span></div>`;
+      return `<div class="sep"></div><div class="row ${on}" style="color:var(--rose)">Exit Agent Remote</div>`; }).join('');
+    return `<div class="set-h">SETTINGS · MQTT BROKERS</div><div class="rows">${rows}</div>`;
+  }
+  if (!S.sessions.length) return `<div class="empty"><div class="t1">No Claude sessions yet</div><div class="t2">Start Claude Code on your Mac and it shows up here. You’ll get a chime when it needs a decision.</div></div>`;
+  const s=cur(), peek = !!pend();
+  return headHtml(s) + `<div class="turnbox ${peek?'withpeek':''}"><div class="turn" style="transform:translateY(${-S.scroll*LINE}px)">${turnHtml(s)}</div></div><div class="sbar" id="tbar"><i></i></div>`;
+}
+function peekHtml(r){
+  const exp=expired(r), q = r.kind==='question';
+  /* expanded: a short label (the body shows the full text); hidden: the first line of what's being asked */
+  const title = S.sheetHidden
+    ? (q ? (r.step==='review' ? 'Review your answers' : r.questions[r.step].question) : r.title)
+    : (q ? (r.step==='review' ? 'Review your answers' : r.questions[r.step].header) : 'Needs your approval');
+  const left = Math.max(0, Math.ceil(r.timeout-(now()-r.recv)/1000));
+  const queued = cur().pending.length-1;
+  const side = S.sheetHidden ? `${G.s}<span>Show</span>` : `<span>${exp?'expired':left+'s left'}${queued>0?' · +'+queued+' queued':''}</span>`;
+  const chip = q ? `<span class="chip q">${r.questions.length>1 && r.step!=='review' ? 'Q '+(r.step+1)+'/'+r.questions.length : 'QUESTION'}</span>` : `<span class="chip ${exp?'dim':''}">${r.tool.toUpperCase()}</span>`;
+  return `${chip}<span class="ttl">${esc(title.split('\n')[0])}${S.sheetHidden?'…':''}</span><span class="side">${side}</span>`;
+}
+function sentNote(r){
+  return `<div class="opts"><div class="optnote">${G.x}<span>${r.sent.mac?'':'Sent · '}<b style="color:${r.sent.danger?'var(--rose)':'var(--amber)'};font-weight:500">${r.sent.label}</b></span><span style="color:var(--muted);font:12px var(--mono);margin-left:auto">${r.sent.mac?'answer it on your Mac':'waiting for Claude…'}</span></div></div>`;
+}
+function armBar(i){ const t=now()-S.shownAt; return i===S.sel && t<LOCKOUT ? `<span class="arm" style="width:${100*t/LOCKOUT}%"></span>` : ''; }
+function sheetBody(r){
+  if (r.kind==='approval'){
+    let h = `<div class="codebox"><div class="code" style="transform:translateY(${-S.sheetScroll*LINE}px);${expired(r)?'opacity:.45':''}">${r.tool==='Bash'?'<span class="p">$ </span>':''}${r.body}</div></div><div class="sbar" id="cbar" style="top:12px;bottom:84px"><i></i></div><span class="cwd">${r.cwd||''}</span>`;
+    if (r.sent) return h + sentNote(r);
+    if (expired(r)) return h + `<div class="opts"><div class="optnote" style="color:var(--muted)">This request timed out. Answer it on your Mac.</div></div>`;
+    return h + `<div class="opts">${r.opts.map((o,i)=>`<div class="opt ${i===S.sel?'sel':''} ${i===S.sel&&o.danger?'danger':''}" data-opt="${i}">${i===S.sel?G.x:''}${o.label}${armBar(i)}</div>`).join('')}</div>`;
+  }
+  if (r.sent) return `<div class="review"><div class="r"><span class="h">STATUS</span><span>${r.sent.label}</span></div></div>` + sentNote(r);
+  if (expired(r)) return `<div class="opts"><div class="optnote" style="color:var(--muted)">This question timed out. Answer it on your Mac.</div></div>`;
+  if (r.step==='review'){
+    const rows = r.questions.map((q,i)=>`<div class="r"><span class="h">${q.header.toUpperCase()}</span><span>${esc(answerText(r,i))}</span></div>`).join('');
+    const b = ['Send answers','Change','Answer on Mac'];
+    return `<div class="review">${rows}</div><div class="opts">${b.map((l,i)=>`<div class="opt ${i===S.sel?'sel':''}" data-opt="${i}">${i===S.sel?G.x:''}${l}${armBar(i)}</div>`).join('')}</div>`;
+  }
+  const q=r.questions[r.step], a=r.answers[r.step];
+  const rows = qRows(r).map((row,i)=>{
+    let box='';
+    if (row.k==='opt') box = q.multi ? `<span class="box ${a.sel.has(row.i)?'ck':''}">${a.sel.has(row.i)?'✓':''}</span>` : `<span class="box radio ${a.sel.has(row.i)?'rd':''}"></span>`;
+    if (row.k==='other') box = `<span class="box ${q.multi?'':'radio'} ${a.other?(q.multi?'ck':'rd'):''}">${a.other&&q.multi?'✓':''}</span>`;
+    const cls = row.k==='next'?'meta':row.k==='mac'?'mac':'';
+    const desc = row.k==='other' && a.other ? '“'+esc(a.other)+'”' : (row.description||'');
+    return `<div class="qrow ${cls} ${i===S.sel?'on':''}" data-opt="${i}">${box}<div style="flex:1;min-width:0"><div class="lab">${esc(row.label)}</div>${desc?`<div class="desc">${desc}</div>`:''}${i===S.sel&&now()-S.shownAt<LOCKOUT?`<div class="arm2" style="width:${100*(now()-S.shownAt)/LOCKOUT}%"></div>`:''}</div>${i===S.sel?`<span class="badge2">${G.x}</span>`:''}</div>`;
+  }).join('');
+  /* keep the highlighted row in view: list area is ~ (sheet body height - 68) px, rows are 52 px apart */
+  const listH = 460 - 46 - 68, off = Math.max(0, (Math.max(S.sel,0)+1)*52 - listH);
+  return `<div class="qtext">${esc(q.question)}${q.multi?' <span style="font:12px var(--mono);color:var(--muted)">· pick any</span>':''}</div><div class="qlist"><div class="qinner" style="transform:translateY(${-off}px)">${rows}</div></div>`;
+}
+function overHtml(){
+  const t=now(); let h='';
+  if (S.banner && t<S.banner.until) h+=`<div class="banner">${S.banner.html}</div>`;
+  if (S.toast && t<S.toast.until) h+=`<div class="toast">${S.toast.msg}</div>`;
+  if (S.list.open && S.list.confirm){
+    const x=S.sessions[S.list.cursor], c=S.list.confirm, armed=now()-c.at>=LOCKOUT;
+    const b=(i,l,d)=>`<div class="b ${c.sel===i?'sel':''} ${c.sel===i&&d?'danger':''}">${c.sel===i?G.x:''}${l}${c.sel===i&&!armed?`<span class="arm" style="width:${100*(now()-c.at)/LOCKOUT}%"></span>`:''}</div>`;
+    h+=`<div class="modal"><div class="box"><div class="t">Remove ${x.project} from the list?</div><div class="d">It comes back the next time Claude Code reports from that session. Nothing on your Mac changes.</div><div class="bs">${b(0,'Keep',false)}${b(1,'Remove',true)}</div></div></div>`;
+  }
+  if (S.ime) h+=`<div class="ime"><div class="box"><div class="lab">${S.ime.label}</div><input id="imein" value="${esc(S.ime.value)}" placeholder="${S.ime.placeholder}" style="${S.ime.mono?'font-family:var(--mono)':''}" spellcheck="false"><div class="h" style="${S.ime.err?'color:var(--rose)':''}">${S.ime.err||'The Vita system keyboard opens here.'}</div></div></div>`;
+  if (S.cursor) h+=`<div class="cursor" style="left:${S.cursor.x}px;top:${S.cursor.y}px"></div>`;
+  if (S.dimmed) h+=`<div class="dimmed">PRESS ANY BUTTON</div>`;
+  return h;
+}
+function bar(id, el, scroll){
+  const sb=$(id); if(!sb||!el) return;
+  const box=el.parentElement.clientHeight-12, total=Math.ceil(el.scrollHeight/LINE), per=Math.floor(box/LINE);
+  if (total<=per){ sb.style.display='none'; return; }
+  const top=el.parentElement.offsetTop+el.parentElement.parentElement.offsetTop, hgt=el.parentElement.clientHeight;
+  if (id==='tbar'){ sb.style.top=el.parentElement.offsetTop+'px'; sb.style.height=hgt+'px'; }
+  const th=Math.max(24,hgt*per/total); sb.firstChild.style.height=th+'px'; sb.firstChild.style.top=((hgt-th)*scroll/Math.max(1,maxScroll(el)))+'px';
+}
+let imeFocused=false;
+function render(){
+  syncView();
+  $('top').innerHTML = topHtml();
+  $('main').innerHTML = mainHtml();
+  const r = !S.settings.open && !S.list.open && pend();
+  const sheet=$('sheet');
+  sheet.className = 'sheet ' + (!r ? 'gone' : S.sheetHidden ? 'hidden' : '');
+  if (r){ $('peek').innerHTML = peekHtml(r); $('sbody').innerHTML = sheetBody(r); }
+  $('hints').innerHTML = hintsHtml();
+  const hadIme = !!$('imein');
+  $('over').innerHTML = overHtml();
+  const inp=$('imein');
+  if (inp){ if(!imeFocused){ inp.focus(); imeFocused=true; } else inp.focus(); inp.setSelectionRange(inp.value.length,inp.value.length); inp.oninput=e=>{S.ime.value=e.target.value;S.ime.err='';}; } else imeFocused=false;
+  bar('tbar', $('main').querySelector('.turn'), S.scroll);
+  if (r && r.kind==='approval') bar('cbar', $('sbody').querySelector('.code'), S.sheetScroll);
+}
+setInterval(()=>{ if(S.settings.dim && now()-S.lastInput>S.settings.dim*60000) S.dimmed=true; if(!S.ime) render(); }, 100);
+
+/* ---------- inputs ---------- */
+const KEYS={q:'L',e:'R',w:'lup',s:'ldown',arrowup:'up',arrowdown:'down',a:'left',arrowleft:'left',d:'right',arrowright:'right',k:'x',' ':'x',l:'o',escape:'o',i:'t',j:'s',h:'select',enter:'start'};
+addEventListener('keydown', e=>{
+  if (S.ime && e.target.id==='imein'){ if(e.key==='Enter'){ e.preventDefault(); press('x'); } else if(e.key==='Escape') press('o'); return; }
+  const b=KEYS[e.key.toLowerCase()]; if(!b) return; e.preventDefault(); press(b);
+});
+$('pads').onclick = e=>{ const p=e.target.closest('[data-pad]'); if(p) press(p.dataset.pad); };
+let scale=1, drag=null;
+const scr=$('scr');
+function toScreen(e){ const r=scr.getBoundingClientRect(); return {x:(e.clientX-r.left)/scale, y:(e.clientY-r.top)/scale}; }
+function optAt(e){ const o=document.elementsFromPoint(e.clientX,e.clientY).find(x=>x.dataset&&x.dataset.opt!==undefined); return o?+o.dataset.opt:-1; }
+scr.addEventListener('mousedown', e=>{ if(e.shiftKey) return; if(wake()) return render(); drag={...toScreen(e), moved:false}; });
+addEventListener('mousemove', e=>{
+  const p=toScreen(e);
+  if (e.shiftKey && p.x>=0&&p.y>=0&&p.x<960&&p.y<544){
+    wake(); S.cursor={x:Math.round(p.x),y:Math.round(p.y)};
+    const i=optAt(e); if(i>=0 && live(pend()) && !S.sheetHidden) S.sel=i;
+    return render();
+  }
+  if (!drag) return;
+  const dy=p.y-drag.y;
+  if (!drag.moved && Math.abs(dy)>12){ drag.moved=true; drag.anchor=drag.y+(dy>0?12:-12); }
+  if (drag.moved){ while(drag.anchor-p.y>=LINE){ scrollBy(1); drag.anchor-=LINE; } while(p.y-drag.anchor>=LINE){ scrollBy(-1); drag.anchor+=LINE; } render(); }
+});
+addEventListener('mouseup', e=>{ if(drag&&!drag.moved){ const i=optAt(e); if(i>=0 && live(pend()) && !S.sheetHidden){ S.sel=i; render(); } } drag=null; });
+addEventListener('keyup', e=>{ if(e.key==='Shift'&&S.cursor) setTimeout(()=>{ S.cursor=null; render(); },1000); });
+
+/* ---------- simulation ---------- */
+$('sims').onclick = e=>{
+  const k=e.target.dataset.sim; if(!k) return; wake();
+  const s=cur();
+  const add=(sess, r)=>{ const busy = cur() && cur().pending.length; sess.pending.push(r); sess.state='waiting'; if(sess!==cur()) { if(busy) sess.flash=true; else S.cur=S.sessions.indexOf(sess); } };
+  if (k==='bash' && s) add(s, approval('Bash','git push --force-with-lease origin feat/vita-app', `git push --force-with-lease origin feat/vita-app\n<span class="c"># 推送重写过的分支</span>`, '~/Workspace/fun-projects/PSV_agent_remote'));
+  if (k==='edit' && s) add(s, approval('Edit','vita/src/net.c', `<span class="k">--- old</span>\n<span class="del">    int backoff_s = 1;</span>\n<span class="k">+++ new</span>\n<span class="add">    Reconnect policy;</span>\n<span class="add">    reconnect_init(&policy);</span>`, '~/Workspace/fun-projects/PSV_agent_remote/vita'));
+  if (k==='q1' && s){ s.turn.push({who:'claude', text:'在继续之前，我需要你决定选项列表放在哪里。'}); add(s, question([{header:'Layout', question:'提问页的选项列表怎么排？', options:[{label:'Vertical list', description:'One option per row, descriptions under each'},{label:'Horizontal buttons', description:'Same as approvals, labels only'},{label:'Two columns', description:'Fits more on screen, smaller text'}], multi:false}])); }
+  if (k==='q2' && s){ s.turn.push({who:'claude', text:'Two quick choices before I wire this up.'}); add(s, question([
+    {header:'Framework', question:'Which test runner should the webhook tests use?', options:[{label:'Vitest', description:'Fast, works with the existing Vite config'},{label:'Jest', description:'What the API package already uses'}], multi:false},
+    {header:'Retries', question:'Which failures should trigger a retry?', options:[{label:'Timeouts'},{label:'5xx responses'},{label:'429 rate limits', description:'Respect Retry-After'},{label:'Connection resets'}], multi:true}])); }
+  if (k==='other'){ const o=S.sessions.find((x,i)=>i!==S.cur); if(o) add(o, approval('Write','docs/findings.md', `<span class="c"># 实测结论</span>\nRear touch maps 1:1.`, '~/Workspace/fun-projects/PSV_agent_remote')); }
+  if (k==='say' && s){ s.turn.push({who:'tool', tool:'Bash', text:'npm test'}, {who:'claude', text:'测试通过了 42/42。接下来我会把选项列表改成竖排，并给每个选项加上说明文字。'}); if(!s.pending.length) s.state='running'; }
+  if (k==='idle' && s){ s.pending=[]; s.state='idle'; s.since=now(); s.turn.push({who:'claude', text:'Done. The question sheet now uses a vertical list and keeps the turn visible underneath.'}); S.banner={html:`<span class="dot ring" style="color:var(--teal)"></span><b style="font-weight:500">${s.project}</b><span style="color:var(--muted)">is idle · finished its turn</span>`, until:now()+3000}; }
+  if (k==='expire' && pend()) pend().recv = now()-TIMEOUT*1000-1;
+  if (k==='clear' && s && s.pending.length){ s.pending.shift(); if(!s.pending.length) s.state='running'; }
+  if (k==='net'){ if(S.net==='up') S.net='offline'; else { S.net='connecting'; setTimeout(()=>{S.net='up';render();},900); } }
+  if (k==='dim') S.dimmed=true;
+  if (k==='none'){ S.sessions=[]; S.cur=0; }
+  if (k==='reset') reset();
+  render();
+};
+document.querySelectorAll('[data-scale]').forEach(b=>b.onclick=()=>{ scale=+b.dataset.scale; const sw=$('sw'); sw.style.transform=`scale(${scale})`; sw.style.width=960*scale+'px'; sw.style.height=544*scale+'px'; });
+render();
+</script>
+</body>
+</html>

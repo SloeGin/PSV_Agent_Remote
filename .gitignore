@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+vita/build/
+.superpowers/
+*.psp2dmp
+debug.log

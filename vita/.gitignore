@@ -1,0 +1,6 @@
+/tests/test_*
+!/tests/test_*.c
+/tests/mqtt_smoke
+/tests/*.dSYM
+/tests/*.o
+/tests/*.a
