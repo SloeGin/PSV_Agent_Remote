@@ -29,6 +29,8 @@ typedef struct {
 } UiView;
 
 bool ui_init(void);
+/* After waiting for the GPU and before vita2d_fini. */
+void ui_fini(void);
 
 /* Call between vita2d_start_drawing and vita2d_end_drawing. */
 void ui_draw(const Model *m, const UiView *v, uint64_t now);

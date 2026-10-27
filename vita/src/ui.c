@@ -12,28 +12,85 @@
 #include "util.h"
 #include "view.h"
 
-/* Palette (docs/mockup/index.html) */
-#define C_BG RGBA8(0x17, 0x12, 0x0F, 0xFF)
-#define C_PANEL RGBA8(0x1E, 0x18, 0x14, 0xFF)
-#define C_BAR RGBA8(0x21, 0x1A, 0x15, 0xFF)
-#define C_SHEET RGBA8(0x1C, 0x16, 0x12, 0xFF)
-#define C_HINTBG RGBA8(0x14, 0x10, 0x0D, 0xFF)
-#define C_LINE RGBA8(0x3A, 0x2F, 0x27, 0xFF)
-#define C_LINE2 RGBA8(0x2F, 0x26, 0x20, 0xFF)
-#define C_TABON RGBA8(0x2E, 0x25, 0x20, 0xFF)
-#define C_TEXT RGBA8(0xF1, 0xE6, 0xD6, 0xFF)
-#define C_TEXT2 RGBA8(0xC9, 0xBB, 0xA9, 0xFF)
-#define C_MUTED RGBA8(0x9C, 0x8F, 0x80, 0xFF)
-#define C_DIM RGBA8(0x6B, 0x5A, 0x4A, 0xFF)
-#define C_AMBER RGBA8(0xFF, 0xB3, 0x5C, 0xFF)
-#define C_AMBER_DEEP RGBA8(0x6B, 0x4A, 0x25, 0xFF)
-#define C_TEAL RGBA8(0x5F, 0xC9, 0xB8, 0xFF)
-#define C_TEAL_DEEP RGBA8(0x2D, 0x5B, 0x54, 0xFF)
-#define C_ROSE RGBA8(0xFF, 0x7A, 0x6B, 0xFF)
-#define C_DEL RGBA8(0xFF, 0x9A, 0x8F, 0xFF)
-#define C_ADD RGBA8(0x8F, 0xE3, 0xC4, 0xFF)
-#define C_BANNER RGBA8(0x1F, 0x2D, 0x29, 0xFF)
-#define C_SCRIM RGBA8(0x0A, 0x08, 0x06, 0xB8)
+/* Agent palettes belong to conversations/popups; app pages have their own identity. */
+typedef enum { THEME_CLAUDE, THEME_CODEX, THEME_APP } ThemeKind;
+typedef struct {
+    unsigned bg, panel, bar, sheet, hintbg, line, line2, tabon, text, text2, muted, dim, brand;
+} Theme;
+static const Theme g_themes[] = {
+    {
+        .bg = RGBA8(0x17, 0x12, 0x0F, 0xFF),
+        .panel = RGBA8(0x1E, 0x18, 0x14, 0xFF),
+        .bar = RGBA8(0x21, 0x1A, 0x15, 0xFF),
+        .sheet = RGBA8(0x1C, 0x16, 0x12, 0xFF),
+        .hintbg = RGBA8(0x14, 0x10, 0x0D, 0xFF),
+        .line = RGBA8(0x3A, 0x2F, 0x27, 0xFF),
+        .line2 = RGBA8(0x2F, 0x26, 0x20, 0xFF),
+        .tabon = RGBA8(0x2E, 0x25, 0x20, 0xFF),
+        .text = RGBA8(0xF1, 0xE6, 0xD6, 0xFF),
+        .text2 = RGBA8(0xC9, 0xBB, 0xA9, 0xFF),
+        .muted = RGBA8(0x9C, 0x8F, 0x80, 0xFF),
+        .dim = RGBA8(0x6B, 0x5A, 0x4A, 0xFF),
+        .brand = RGBA8(0xFF, 0xB3, 0x5C, 0xFF),
+    },
+    {
+        .bg = RGBA8(0x0D, 0x15, 0x12, 0xFF),
+        .panel = RGBA8(0x11, 0x1B, 0x17, 0xFF),
+        .bar = RGBA8(0x0F, 0x1E, 0x19, 0xFF),
+        .sheet = RGBA8(0x10, 0x19, 0x15, 0xFF),
+        .hintbg = RGBA8(0x0A, 0x13, 0x0E, 0xFF),
+        .line = RGBA8(0x1F, 0x36, 0x2D, 0xFF),
+        .line2 = RGBA8(0x19, 0x2B, 0x24, 0xFF),
+        .tabon = RGBA8(0x17, 0x2B, 0x22, 0xFF),
+        .text = RGBA8(0xE7, 0xF3, 0xED, 0xFF),
+        .text2 = RGBA8(0xBE, 0xD3, 0xC7, 0xFF),
+        .muted = RGBA8(0x8D, 0xA9, 0x9A, 0xFF),
+        .dim = RGBA8(0x59, 0x74, 0x66, 0xFF),
+        .brand = RGBA8(0x10, 0xA3, 0x7F, 0xFF),
+    },
+    {
+        .bg = RGBA8(0x15, 0x17, 0x0F, 0xFF),
+        .panel = RGBA8(0x1C, 0x1F, 0x14, 0xFF),
+        .bar = RGBA8(0x20, 0x24, 0x17, 0xFF),
+        .sheet = RGBA8(0x19, 0x1D, 0x12, 0xFF),
+        .hintbg = RGBA8(0x11, 0x14, 0x0C, 0xFF),
+        .line = RGBA8(0x3A, 0x41, 0x29, 0xFF),
+        .line2 = RGBA8(0x2C, 0x32, 0x1F, 0xFF),
+        .tabon = RGBA8(0x2B, 0x31, 0x20, 0xFF),
+        .text = RGBA8(0xE9, 0xEB, 0xD9, 0xFF),
+        .text2 = RGBA8(0xC6, 0xC9, 0xAA, 0xFF),
+        .muted = RGBA8(0x96, 0x9B, 0x77, 0xFF),
+        .dim = RGBA8(0x60, 0x67, 0x47, 0xFF),
+        .brand = RGBA8(0xDD, 0xD2, 0x3B, 0xFF),
+    },
+};
+static const Theme *g_theme = &g_themes[THEME_APP];
+#define C_BG (g_theme->bg)
+#define C_PANEL (g_theme->panel)
+#define C_BAR (g_theme->bar)
+#define C_SHEET (g_theme->sheet)
+#define C_HINTBG (g_theme->hintbg)
+#define C_LINE (g_theme->line)
+#define C_LINE2 (g_theme->line2)
+#define C_TABON (g_theme->tabon)
+#define C_TEXT (g_theme->text)
+#define C_TEXT2 (g_theme->text2)
+#define C_MUTED (g_theme->muted)
+#define C_DIM (g_theme->dim)
+#define C_BRAND (g_theme->brand)
+#define C_SOFA ((unsigned)RGBA8(0xE8, 0x7A, 0x90, 0xFF))
+#define C_DESK ((unsigned)RGBA8(0x2E, 0xA9, 0xDF, 0xFF))
+#define C_YOU C_SOFA
+#define C_YOU_LINE ((unsigned)RGBA8(0x61, 0x33, 0x3C, 0xFF))
+#define C_AMBER ((unsigned)RGBA8(0xFF, 0xB3, 0x5C, 0xFF))
+#define C_AMBER_DEEP ((unsigned)RGBA8(0x6B, 0x4A, 0x25, 0xFF))
+#define C_TEAL ((unsigned)RGBA8(0x5F, 0xC9, 0xB8, 0xFF))
+#define C_TEAL_DEEP ((unsigned)RGBA8(0x2D, 0x5B, 0x54, 0xFF))
+#define C_ROSE ((unsigned)RGBA8(0xFF, 0x7A, 0x6B, 0xFF))
+#define C_DEL ((unsigned)RGBA8(0xFF, 0x9A, 0x8F, 0xFF))
+#define C_ADD ((unsigned)RGBA8(0x8F, 0xE3, 0xC4, 0xFF))
+#define C_BANNER ((unsigned)RGBA8(0x1F, 0x2D, 0x29, 0xFF))
+#define C_SCRIM ((unsigned)RGBA8(0x0A, 0x08, 0x06, 0xB8))
 
 #define TOP_H 44
 #define HINT_H 30
@@ -87,7 +144,7 @@ static int g_sheet_max;
 
 /* Turn view: display lines */
 typedef enum {
-    DL_LABEL_YOU, DL_LABEL_CLAUDE, DL_YOU, DL_CLAUDE, DL_TOOL, DL_NOTE, DL_GAP,
+    DL_LABEL_YOU, DL_LABEL_AGENT, DL_YOU, DL_AGENT, DL_TOOL, DL_NOTE, DL_GAP,
     DL_MD, DL_CODE, DL_TABLE_ROW, DL_TABLE_BAR
 } DLKind;
 enum { DLF_FIRST = 1, DLF_LAST = 2, DLF_ROW_END = 4 }; /* first / last line of a block; last line of a table row */
@@ -102,7 +159,7 @@ typedef struct {
     short sub;           /* table rows: which wrapped line of the row */
 } DLine;
 
-/* Claude's text as markdown */
+/* Assistant text as markdown */
 #define MAX_MD_DOCS 4
 #define MD_CODE_SIZE 15
 #define MD_HEAD_SIZE 19
@@ -152,9 +209,21 @@ static float g_sheet_y = SCREEN_H;
 static float g_reply_y = SCREEN_H; /* top of the reply drawer, animated */
 static char g_sheet_rid[24];
 
+static vita2d_texture *g_agent_icons[2];
+
 bool ui_init(void) {
     vita2d_set_clear_color(C_BG);
-    return gfx_init();
+    if (!gfx_init()) return false;
+    g_agent_icons[AGENT_CLAUDE] = vita2d_load_PNG_file("app0:icons/claude.png");
+    g_agent_icons[AGENT_CODEX] = vita2d_load_PNG_file("app0:icons/codex.png");
+    return true; /* Missing optional artwork gets a safe text fallback. */
+}
+
+void ui_fini(void) {
+    for (int i = 0; i < 2; i++) {
+        if (g_agent_icons[i]) vita2d_free_texture(g_agent_icons[i]);
+        g_agent_icons[i] = NULL;
+    }
 }
 
 int ui_turn_max_scroll(void) { return g_turn_max; }
@@ -271,9 +340,9 @@ static int draw_battery(const UiView *v, int right, uint64_t now) {
 static void draw_top(const Model *m, const UiView *v, bool show_tabs, uint64_t now) {
     gfx_rect(0, 0, SCREEN_W, TOP_H, C_BAR);
     gfx_rect(0, TOP_H - 1, SCREEN_W, 1, C_LINE);
-    int x = gfx_text_spaced(F_MONO_MED, PAD, 13, C_AMBER, 13, 2, "AGENT");
-    x = gfx_text_spaced(F_MONO, x + 2, 13, C_MUTED, 13, 2, "//");
-    x = gfx_text_spaced(F_MONO_MED, x + 2, 13, C_AMBER, 13, 2, "REMOTE") + 18;
+    int x = gfx_text_spaced(F_MONO_MED, PAD, 13, C_BRAND, 13, 2, "AGENT");
+    x = gfx_text_spaced(F_MONO, x + 2, 13, g_theme != &g_themes[THEME_CLAUDE] ? C_BRAND : C_MUTED, 13, 2, "//");
+    x = gfx_text_spaced(F_MONO_MED, x + 2, 13, C_BRAND, 13, 2, "REMOTE") + 18;
 
     const char *net = v->net == NET_UP ? "LINK" : v->net == NET_CONNECTING ? "LINKING" : "OFFLINE";
     if (v->net != NET_UP && v->net_err == NETERR_NO_KEY) net = "NO KEY";
@@ -289,8 +358,8 @@ static void draw_top(const Model *m, const UiView *v, bool show_tabs, uint64_t n
     const char *mode = m->mode == MODE_DESK ? "DESK" : "SOFA";
     int bw = gfx_text_width(F_MONO_MED, 11, mode, -1) + 3 + 14;
     rx -= bw;
-    gfx_panel(rx, 12, bw, 20, 5, m->mode == MODE_DESK ? C_TEAL_DEEP : C_AMBER_DEEP, C_BAR);
-    gfx_text_spaced(F_MONO_MED, rx + 7, 15, m->mode == MODE_DESK ? C_TEAL : C_AMBER, 11, 1, mode);
+    gfx_panel(rx, 12, bw, 20, 5, m->mode == MODE_DESK ? C_DESK : C_SOFA, C_BAR);
+    gfx_text_spaced(F_MONO_MED, rx + 7, 15, m->mode == MODE_DESK ? C_DESK : C_SOFA, 11, 1, mode);
     rx -= 10;
     if (!show_tabs) return;
     if (m->n) {
@@ -324,7 +393,7 @@ static void draw_top(const Model *m, const UiView *v, bool show_tabs, uint64_t n
 
 typedef enum {
     HINT_PLAIN, HINT_PEEK, HINT_APPROVAL, HINT_QUESTION, HINT_LIST, HINT_CONFIRM, HINT_SETTINGS,
-    HINT_REPLY, HINT_REPLY_PEEK
+    HINT_REPLY, HINT_REPLY_PEEK, HINT_CAPABILITIES
 } HintCtx;
 
 static int keycap(int x, const char *label) {
@@ -395,7 +464,12 @@ static void draw_hints(HintCtx ctx, Mode mode) {
         x = hint_glyph(x, GLYPH_CROSS, "Open");
         x = hint_key(x, "UP/DOWN", "Choose");
         x = hint_glyph(x, GLYPH_SQUARE, "Remove");
+        x = hint_glyph(x, GLYPH_TRIANGLE, "Capabilities");
         hint_glyph(x, GLYPH_CIRCLE, "Close");
+        tail = false;
+        break;
+    case HINT_CAPABILITIES:
+        gfx_text(F_MONO, PAD, HINT_Y + 8, C_MUTED, 12, "Press any button to close", -1);
         tail = false;
         break;
     case HINT_CONFIRM:
@@ -432,7 +506,7 @@ static void scrollbar(int x, int y, int h, int scroll, int max, int lines_visibl
 static int dl_height(DLKind k) {
     switch (k) {
     case DL_LABEL_YOU:
-    case DL_LABEL_CLAUDE: return 18;
+    case DL_LABEL_AGENT: return 18;
     case DL_TOOL:
     case DL_NOTE: return 26;
     case DL_GAP: return 12;
@@ -534,7 +608,7 @@ static bool build_table(int slot, int b, int item) {
     return true;
 }
 
-/* Display lines for Claude's text as markdown; false = show it plain instead. */
+/* Display lines for Assistant text as markdown; false = show it plain instead. */
 static bool build_md(int slot, int item, const char *t) {
     if (slot >= MAX_MD_DOCS) return false;
     MdDoc *doc = &g_md[slot];
@@ -613,21 +687,21 @@ static void build_turn(const Session *s) {
             continue;
         }
         bool you = it->kind == TURN_YOU;
-        dl_push(you ? DL_LABEL_YOU : DL_LABEL_CLAUDE, i, 0, 0);
+        dl_push(you ? DL_LABEL_YOU : DL_LABEL_AGENT, i, 0, 0);
         if (!you && build_md(slot++, i, t)) {
             dl_push(DL_GAP, i, 0, 0);
             continue;
         }
         int n = layout_wrap(t, (int)strlen(t), TURN_W - (you ? 15 : 0), measure_sans, NULL, g_wrap_tmp, MAX_LINES);
-        for (int k = 0; k < n; k++) dl_push(you ? DL_YOU : DL_CLAUDE, i, g_wrap_tmp[k].start, g_wrap_tmp[k].len);
+        for (int k = 0; k < n; k++) dl_push(you ? DL_YOU : DL_AGENT, i, g_wrap_tmp[k].start, g_wrap_tmp[k].len);
         dl_push(DL_GAP, i, 0, 0);
     }
     /* Sessions that predate the turn feed still have their last message. */
     if (s->n_turn == 0 && s->summary[0]) {
-        dl_push(DL_LABEL_CLAUDE, -1, 0, 0);
+        dl_push(DL_LABEL_AGENT, -1, 0, 0);
         if (build_md(slot, -1, s->summary)) return;
         int n = layout_wrap(s->summary, (int)strlen(s->summary), TURN_W, measure_sans, NULL, g_wrap_tmp, MAX_LINES);
-        for (int k = 0; k < n; k++) dl_push(DL_CLAUDE, -1, g_wrap_tmp[k].start, g_wrap_tmp[k].len);
+        for (int k = 0; k < n; k++) dl_push(DL_AGENT, -1, g_wrap_tmp[k].start, g_wrap_tmp[k].len);
     }
 }
 
@@ -657,12 +731,12 @@ static int draw_styled(const MdDoc *doc, int start, int len, int x, int y, MdMod
             int lp = off == r->start ? MD_PILL_PAD : 0, rp = stop == r->start + r->len ? MD_PILL_PAD : 0;
             int w = gfx_text_width(F_MONO, MD_CODE_SIZE, p, n) + lp + rp, dy = heading ? 3 : 0;
             gfx_panel(x, y + 4 + dy, w, 22, 4, C_LINE2, C_PANEL);
-            gfx_text(F_MONO, x + lp, y + 6 + dy, C_AMBER, MD_CODE_SIZE, p, n);
+            gfx_text(F_MONO, x + lp, y + 6 + dy, C_BRAND, MD_CODE_SIZE, p, n);
             x += w;
         } else if (heading) {
-            x = gfx_text(F_SANS_MED, x, y + 5, C_AMBER, MD_HEAD_SIZE, p, n);
+            x = gfx_text(F_SANS_MED, x, y + 5, C_BRAND, MD_HEAD_SIZE, p, n);
         } else if (mode == MDM_TH) {
-            x = gfx_text(F_SANS_MED, x, y + 3, C_AMBER, BODY_SIZE, p, n);
+            x = gfx_text(F_SANS_MED, x, y + 3, C_BRAND, BODY_SIZE, p, n);
         } else if (st & MD_S_BOLD) {
             x = gfx_text(F_SANS_MED, x, y + 3, C_TEXT, BODY_SIZE, p, n);
         } else {
@@ -679,7 +753,7 @@ static void draw_md_line(const DLine *d, int y) {
     bool list = blk->kind == MD_BULLET || blk->kind == MD_NUMBER;
     int x = PAD + (list ? (blk->level + 1) * MD_INDENT : 0);
     if (list && (d->flags & DLF_FIRST))
-        gfx_text(F_SANS_MED, PAD + blk->level * MD_INDENT, y + 3, C_AMBER, BODY_SIZE,
+        gfx_text(F_SANS_MED, PAD + blk->level * MD_INDENT, y + 3, C_BRAND, BODY_SIZE,
                  blk->kind == MD_BULLET ? "•" : blk->marker, -1);
     draw_styled(doc, d->start, d->len, x, y, blk->kind == MD_HEADING ? MDM_HEAD : MDM_BODY);
 }
@@ -731,7 +805,7 @@ static void draw_table_bar(const DLine *d, int y, const UiView *v) {
     if (thumb < 24) thumb = 24;
     gfx_round_rect(PAD, y + 4, vw, 3, 1, C_LINE2);
     gfx_round_rect(PAD + (vw - thumb) * v->table_pan[d->len] / (range > 0 ? range : 1), y + 4, thumb, 3, 1,
-                   v->table_focus == d->len ? C_AMBER : C_DIM);
+                   v->table_focus == d->len ? C_BRAND : C_DIM);
 }
 
 static void draw_turn(const Model *m, const Session *s, const UiView *v, int bottom, int scroll) {
@@ -752,13 +826,13 @@ static void draw_turn(const Model *m, const Session *s, const UiView *v, int bot
         const DLine *d = &g_dl[i];
         const char *t = d->item >= 0 ? s->turn[d->item].text : s->summary;
         switch (d->kind) {
-        case DL_LABEL_YOU: gfx_text_spaced(F_MONO_MED, PAD, y + 2, C_AMBER, 11, 1, "YOU"); break;
-        case DL_LABEL_CLAUDE: gfx_text_spaced(F_MONO_MED, PAD, y + 2, C_TEAL, 11, 1, "CLAUDE"); break;
+        case DL_LABEL_YOU: gfx_text_spaced(F_MONO_MED, PAD, y + 2, C_YOU, 11, 1, "YOU"); break;
+        case DL_LABEL_AGENT: gfx_text_spaced(F_MONO_MED, PAD, y + 2, C_BRAND, 11, 1, "AGENT"); break;
         case DL_YOU:
-            gfx_rect(PAD, y, 3, LINE_H, C_AMBER_DEEP);
+            gfx_rect(PAD, y, 3, LINE_H, C_YOU_LINE);
             gfx_text(F_SANS, PAD + 15, y + 3, C_TEXT, BODY_SIZE, t + d->start, d->len);
             break;
-        case DL_CLAUDE: gfx_text(F_SANS, PAD, y + 3, C_TEXT2, BODY_SIZE, t + d->start, d->len); break;
+        case DL_AGENT: gfx_text(F_SANS, PAD, y + 3, C_TEXT2, BODY_SIZE, t + d->start, d->len); break;
         case DL_TOOL: {
             const TurnItem *it = &s->turn[d->item];
             int x = gfx_text(F_MONO, PAD, y + 4, C_TEAL, 14, "▸ ", -1);
@@ -775,7 +849,7 @@ static void draw_turn(const Model *m, const Session *s, const UiView *v, int bot
                 block_extent(i, y, &top, &bot);
                 const UiTable *pane = &g_tables[d->sub];
                 bool focus = pane->overflow && v->table_focus == d->sub;
-                gfx_panel(PAD, top, TURN_W, bot - top, 8, focus ? C_AMBER : C_LINE2, C_PANEL);
+                gfx_panel(PAD, top, TURN_W, bot - top, 8, focus ? C_BRAND : C_LINE2, C_PANEL);
             }
             draw_code_line(d, y, bottom, v);
             break;
@@ -786,7 +860,7 @@ static void draw_turn(const Model *m, const Session *s, const UiView *v, int bot
                 int top, bot;
                 block_extent(i, y, &top, &bot);
                 bool focus = tb->overflow && v->table_focus == d->len;
-                gfx_panel(PAD, top, table_view_w(tb), bot - top, 8, focus ? C_AMBER : C_LINE, C_BG);
+                gfx_panel(PAD, top, table_view_w(tb), bot - top, 8, focus ? C_BRAND : C_LINE, C_BG);
             }
             draw_table_row(d, y, bottom, v);
             break;
@@ -799,7 +873,7 @@ static void draw_turn(const Model *m, const Session *s, const UiView *v, int bot
         y += d->h;
     }
     if (s->state == ST_WAITING && s->n_reqs == 0 && m->mode == MODE_DESK && y + 26 <= bottom) {
-        int x = gfx_text(F_MONO, PAD, y + 4, C_TEAL, 14, "Desk mode is on, so Claude asked on your Mac. Press ", -1);
+        int x = gfx_text(F_MONO, PAD, y + 4, C_TEAL, 14, "Desk mode is on, so the agent asked on your computer. Press ", -1);
         gfx_glyph(GLYPH_TRIANGLE, x, y + 5, 14, C_BG);
         gfx_text(F_MONO, x + 18, y + 4, C_TEAL, 14, " to send decisions here.", -1);
     }
@@ -814,7 +888,7 @@ static void draw_head(const Model *m, const Session *s, uint64_t now) {
     int x;
     if (s->n_reqs > 0 || s->state == ST_WAITING) {
         gfx_circle(PAD + 7, 74, 7, C_AMBER);
-        const char *t = s->n_reqs > 0 ? "Needs you" : m->mode == MODE_DESK ? "Waiting on your Mac" : "Waiting";
+        const char *t = s->n_reqs > 0 ? "Needs you" : m->mode == MODE_DESK ? "Waiting on your computer" : "Waiting";
         x = gfx_text(F_SANS, PAD + 24, 54, C_TEXT, 28, t, -1);
         gfx_text(F_MONO, x + 12, 70, C_MUTED, 12, s->project, -1);
     } else if (s->state == ST_RUNNING) {
@@ -925,11 +999,11 @@ static void draw_approval(const Model *m, const Request *r, int dy, int scroll, 
     gfx_rect(SHEET_X + 1, y, SHEET_W - 2, 1, C_LINE2);
     if (r->sent_choice[0]) {
         bool danger = !strncmp(r->sent_choice, "deny", 4);
-        draw_note(y, "Sent · ", option_label(r, r->sent_choice), danger ? C_ROSE : C_AMBER, "waiting for Claude…");
+        draw_note(y, "Sent · ", option_label(r, r->sent_choice), danger ? C_ROSE : C_AMBER, "waiting for agent…");
         return;
     }
     if (expired) {
-        gfx_text(F_SANS, SHEET_X + 16, y + 21, C_MUTED, 15, "This request timed out. Answer it on your Mac.", -1);
+        gfx_text(F_SANS, SHEET_X + 16, y + 21, C_MUTED, 15, "This request timed out. Answer it on your computer.", -1);
         return;
     }
     const char *labels[5];
@@ -967,12 +1041,12 @@ static void draw_check(int x, int y, bool multi, bool on) {
 static void draw_question(const Model *m, const Request *r, int dy, uint64_t now) {
     if (r->sent_choice[0]) {
         bool mac = !strcmp(r->sent_choice, "mac");
-        draw_note(OPTS_Y + dy, mac ? "" : "Sent · ", mac ? "Answering on Mac" : "Answers sent", C_AMBER,
-                  mac ? "answer it on your Mac" : "waiting for Claude…");
+        draw_note(OPTS_Y + dy, mac ? "" : "Sent · ", mac ? "Answering on computer" : "Answers sent", C_AMBER,
+                  mac ? "answer it on your computer" : "waiting for agent…");
         return;
     }
     if (model_request_expired(r, now)) {
-        gfx_text(F_SANS, SHEET_X + 16, OPTS_Y + dy + 21, C_MUTED, 15, "This question timed out. Answer it on your Mac.", -1);
+        gfx_text(F_SANS, SHEET_X + 16, OPTS_Y + dy + 21, C_MUTED, 15, "This question timed out. Answer it on your computer.", -1);
         return;
     }
     int top = BODY_TOP + dy + 14;
@@ -989,7 +1063,7 @@ static void draw_question(const Model *m, const Request *r, int dy, uint64_t now
             gfx_rect(SHEET_X + 18, y + 44, SHEET_W - 36, 1, C_LINE2);
             y += 46;
         }
-        const char *labels[3] = {"Send answers", "Change", "Answer on Mac"};
+        const char *labels[3] = {"Send answers", "Change", "Answer on computer"};
         bool danger[3] = {false, false, false};
         gfx_rect(SHEET_X + 1, OPTS_Y + dy, SHEET_W - 2, 1, C_LINE2);
         draw_buttons(labels, danger, 3, m->sel, OPTS_Y + dy, now - m->shown_ms);
@@ -1039,7 +1113,7 @@ static void draw_question(const Model *m, const Request *r, int dy, uint64_t now
             lc = C_AMBER;
             break;
         default:
-            label = "Answer on Mac";
+            label = "Answer on computer";
             lc = C_MUTED;
             break;
         }
@@ -1178,11 +1252,11 @@ static void reply_peek_line(const Reply *r, uint64_t now, const char **chip, uns
         *chip = "QUEUED", *chip_c = C_AMBER, *side = "Sends when this turn ends";
         return;
     case RS_STOPPING:
-        *chip = "待った!", *chip_c = C_ROSE, *title = "Stopping after the current step…";
+        *chip = "待った!", *chip_c = C_ROSE, *title = "Stopping current turn…";
         return;
     case RS_FAILED:
-        *chip = "NOT DELIVERED", *chip_c = C_DIM;
-        *title = r->draft[0] ? r->draft : stop ? "待った! didn't reach the Mac" : r->sent;
+        *chip = "NOT CONFIRMED", *chip_c = C_DIM;
+        *title = r->draft[0] ? r->draft : stop ? "Stop could not be confirmed" : r->sent;
         *side = r->draft[0] ? "Show" : "";
         return;
     default:
@@ -1190,7 +1264,7 @@ static void reply_peek_line(const Reply *r, uint64_t now, const char **chip, uns
     }
     if (fresh && r->status == RS_DELIVERED) { *side = "Delivered"; return; }
     if (fresh && r->status == RS_STOPPED) { *chip = "待った!", *chip_c = C_ROSE, *title = "Stopped"; return; }
-    if (fresh && r->status == RS_IGNORED) { *chip = "待った!", *chip_c = C_DIM, *title = "Already idle"; return; }
+    if (fresh && r->status == RS_IGNORED) { *chip = "待った!", *chip_c = C_DIM, *title = stop ? "Already idle" : "Reply not sent"; return; }
     if (fresh && r->status == RS_CANCELLED) { *chip = "REPLY", *chip_c = C_DIM, *title = "Reply withdrawn"; return; }
     *chip = "DRAFT";
     *title = r->draft;
@@ -1240,7 +1314,7 @@ static void draw_reply(const Session *s, uint64_t now) {
         return;
     }
     bool pending = l.box != RB_NONE;
-    draw_reply_header(sy, "REPLY", C_TEAL, idle ? "Reply to Claude" : "Claude is working", false,
+    draw_reply_header(sy, "REPLY", C_TEAL, idle ? "Reply to agent" : "Agent is working", false,
                       pending ? "Fold" : "Close", true);
     hit(HIT_REPLY_PEEK, 0, SHEET_X, sy, SHEET_W, PEEK_H);
     gfx_rect(SHEET_X + 1, sy + PEEK_H, SHEET_W - 2, 1, C_LINE2);
@@ -1315,7 +1389,24 @@ static void draw_overlays(const UiView *v, uint64_t now) {
     }
 }
 
+static const Theme *agent_theme(const Session *s) {
+    return &g_themes[!s || s->agent == AGENT_UNKNOWN ? THEME_APP :
+                     s->agent == AGENT_CODEX ? THEME_CODEX : THEME_CLAUDE];
+}
+
+static void use_app_theme(void) {
+    g_theme = &g_themes[THEME_APP];
+    gfx_rect(0, 0, SCREEN_W, SCREEN_H, C_BG);
+}
+
+static void use_session_theme(const Model *m) {
+    const Session *s = m->cur >= 0 && m->cur < m->n ? &m->s[m->cur] : NULL;
+    g_theme = agent_theme(s);
+    gfx_rect(0, 0, SCREEN_W, SCREEN_H, C_BG);
+}
+
 void ui_draw(const Model *m, const UiView *v, uint64_t now) {
+    use_session_theme(m);
     g_n_hits = 0;
     g_hint_table = false;
     g_hint_reply = false;
@@ -1323,8 +1414,8 @@ void ui_draw(const Model *m, const UiView *v, uint64_t now) {
     const Session *s = m->cur >= 0 ? &m->s[m->cur] : NULL;
     const Request *r = model_current_request(m);
     if (!s) {
-        const char *t1 = "No Claude sessions yet";
-        const char *t2 = "Start Claude Code on your Mac and it shows up here.";
+        const char *t1 = "No sessions yet";
+        const char *t2 = "Connect an agent on your computer to see its sessions here.";
         const char *t3 = "You’ll get a chime when it needs a decision.";
         gfx_text(F_SANS, (SCREEN_W - gfx_text_width(F_SANS, 22, t1, -1)) / 2, 222, C_TEXT, 22, t1, -1);
         gfx_text(F_SANS, (SCREEN_W - gfx_text_width(F_SANS, 14, t2, -1)) / 2, 262, C_MUTED, 14, t2, -1);
@@ -1357,7 +1448,7 @@ void ui_draw(const Model *m, const UiView *v, uint64_t now) {
 static void state_label(const Session *s, uint64_t now, char *out, size_t cap) {
     if (s->n_reqs) snprintf(out, cap, "Needs you · %d pending", s->n_reqs);
     else if (s->state == ST_RUNNING) snprintf(out, cap, "Working");
-    else if (s->state == ST_WAITING) snprintf(out, cap, "Waiting on your Mac");
+    else if (s->state == ST_WAITING) snprintf(out, cap, "Waiting on your computer");
     else if (s->state == ST_IDLE) {
         char ago[24];
         format_ago(ago, sizeof ago, now - s->idle_since_ms);
@@ -1365,7 +1456,53 @@ static void state_label(const Session *s, uint64_t now, char *out, size_t cap) {
     } else snprintf(out, cap, "Unknown");
 }
 
+/* Agent marks are confined to the session list. */
+static void draw_agent_icon(AgentKind agent, int cx, int cy) {
+    if ((agent == AGENT_CLAUDE || agent == AGENT_CODEX) && g_agent_icons[agent])
+        vita2d_draw_texture(g_agent_icons[agent], cx - 12, cy - 12);
+    else gfx_text(F_MONO, cx - 8, cy - 7, C_MUTED, 12,
+                  agent == AGENT_CLAUDE ? "CL" : agent == AGENT_CODEX ? "CX" : "?", -1);
+}
+
+static void draw_capabilities(const Model *m, const SessionList *l) {
+    const Session *s = NULL;
+    for (int i = 0; i < m->n; i++)
+        if (!strcmp(m->s[i].sid, l->tooltip_sid)) s = &m->s[i];
+    const Theme *parent_theme = g_theme;
+    g_theme = agent_theme(s);
+    g_n_hits = 0;
+    gfx_rect(0, TOP_H, SCREEN_W, HINT_Y - TOP_H, C_SCRIM);
+    int w = 760, h = 324, x = (SCREEN_W - w) / 2, y = (HINT_Y - h) / 2;
+    gfx_panel(x, y, w, h, 12, C_LINE, C_BAR);
+    char title[128];
+    snprintf(title, sizeof title, "%s · Capabilities", s ? s->project : "Session ended");
+    text_fit(F_SANS_MED, x + 24, y + 20, C_TEXT, 22, title, w - 48, false);
+    char intro[100];
+    snprintf(intro, sizeof intro, "%s · Available controls for this session.", s ? agent_name(s->agent) : "Agent");
+    gfx_text(F_SANS, x + 24, y + 55, C_MUTED, 14, intro, -1);
+    static const char *const labels[CAP_COUNT] = {"Approvals", "Questions", "Replies", "Stop"};
+    static const char *const descriptions[CAP_COUNT] = {
+        "Approve or deny a tool request.", "Answer a question from the agent.",
+        "Send a message to continue a session.", "Ask the session to stop its current turn."
+    };
+    for (int i = 0; i < CAP_COUNT; i++) {
+        int ry = y + 96 + i * 42;
+        Capability cap = session_capability(s, (CapabilityKind)i);
+        const char *value = cap == CAP_SUPPORTED ? "SUPPORTED" :
+                            cap == CAP_UNSUPPORTED ? "UNSUPPORTED" : "UNVERIFIED";
+        gfx_text(F_SANS_MED, x + 24, ry, C_TEXT, 16, labels[i], -1);
+        gfx_text(F_SANS, x + 144, ry + 2, C_MUTED, 13, descriptions[i], -1);
+        gfx_text(F_MONO_MED, x + w - 24 - gfx_text_width(F_MONO_MED, 11, value, -1), ry + 4,
+                 cap == CAP_SUPPORTED ? C_BRAND : C_MUTED, 11, value, -1);
+        gfx_rect(x + 24, ry + 31, w - 48, 1, C_LINE2);
+    }
+    gfx_text_spaced(F_MONO, x + 24, y + h - 34, C_MUTED, 11, 1, "PRESS ANY BUTTON TO CLOSE");
+    g_theme = parent_theme; /* the page and its footer remain application themed */
+    draw_hints(HINT_CAPABILITIES, m->mode);
+}
+
 void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uint64_t now) {
+    use_app_theme();
     g_n_hits = 0;
     draw_top(m, v, false, now);
     char hdr[32];
@@ -1382,10 +1519,11 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
         if (y + rowh < top || y > HINT_Y) continue;
         bool on = i == l->cursor;
         if (on) gfx_panel(PAD, y, SCREEN_W - 2 * PAD, 58, 9, C_LINE, C_TABON);
-        draw_state_dot(s, PAD + 22, y + 29, 6, on ? C_TABON : C_BG, now);
-        int x = gfx_text(F_SANS, PAD + 42, y + 8, C_TEXT, BODY_SIZE, s->project, -1);
+        draw_agent_icon(s->agent, PAD + 24, y + 29);
+        draw_state_dot(s, PAD + 58, y + 29, 6, on ? C_TABON : C_BG, now);
+        int x = gfx_text(F_SANS, PAD + 76, y + 8, C_TEXT, BODY_SIZE, s->project, -1);
         if (i == m->cur) gfx_text(F_MONO, x + 8, y + 12, C_DIM, 11, "· showing", -1);
-        text_fit(F_MONO, PAD + 42, y + 34, C_DIM, 11, s->cwd, SCREEN_W - 380, false);
+        text_fit(F_MONO, PAD + 76, y + 34, C_DIM, 11, s->cwd, SCREEN_W - 414, false);
         char st[64];
         state_label(s, now, st, sizeof st);
         gfx_text(F_MONO, SCREEN_W - PAD - 14 - gfx_text_width(F_MONO, 12, st, -1), y + 21, s->n_reqs ? C_AMBER : C_MUTED, 12, st, -1);
@@ -1399,7 +1537,9 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
     const char *confirm_project = NULL;
     for (int i = 0; l->confirming && i < m->n; i++)
         if (!strcmp(m->s[i].sid, l->confirm_sid)) confirm_project = m->s[i].project;
-    if (confirm_project) {
+    if (l->tooltip) {
+        draw_capabilities(m, l);
+    } else if (confirm_project) {
         g_n_hits = 0; /* the dialog is modal: the list underneath takes no taps */
         gfx_rect(0, 0, SCREEN_W, HINT_Y, C_SCRIM);
         int bw = 540, bh = 168, bx = (SCREEN_W - bw) / 2, by = (SCREEN_H - bh) / 2 - 20;
@@ -1407,13 +1547,13 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
         char t[128];
         snprintf(t, sizeof t, "Remove %s from the list?", confirm_project);
         text_fit(F_SANS, bx + 20, by + 18, C_TEXT, 19, t, bw - 40, false);
-        gfx_text(F_SANS, bx + 20, by + 54, C_MUTED, 14, "It comes back the next time Claude Code reports from that", -1);
-        gfx_text(F_SANS, bx + 20, by + 75, C_MUTED, 14, "session. Nothing on your Mac changes.", -1);
+        gfx_text(F_SANS, bx + 20, by + 54, C_MUTED, 14, "It comes back the next time the agent reports from that", -1);
+        gfx_text(F_SANS, bx + 20, by + 75, C_MUTED, 14, "session. Nothing on your computer changes.", -1);
         const char *labels[2] = {"Keep", "Remove"};
         for (int i = 0; i < 2; i++) {
             int w = (bw - 50) / 2, x = bx + 20 + i * (w + 10), y = by + bh - 58, h = 42;
             bool on = i == l->confirm_sel;
-            unsigned fill = on ? (i == 1 ? C_ROSE : C_AMBER) : C_BAR;
+            unsigned fill = on ? (i == 1 ? C_ROSE : C_BRAND) : C_BAR;
             gfx_panel(x, y, w, h, 9, on ? fill : C_LINE, fill);
             int tw = gfx_text_width(F_SANS, 15, labels[i], -1) + (on ? 21 : 0), tx = x + (w - tw) / 2;
             if (on) {
@@ -1442,6 +1582,7 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
 
 void ui_draw_settings(const Model *m, const AppConfig *c, const SettingsState *s, int connected_idx,
                       const UiView *v, uint64_t now) {
+    use_app_theme();
     g_n_hits = 0;
     draw_top(m, v, false, now);
     gfx_text_spaced(F_MONO_MED, PAD, 56, C_MUTED, 11, 2, "SETTINGS · MQTT BROKERS");
@@ -1486,7 +1627,7 @@ void ui_draw_settings(const Model *m, const AppConfig *c, const SettingsState *s
             break;
         }
         case ROW_ADD:
-            gfx_text(F_SANS, PAD + 14, ty, C_AMBER, 16, "+ Add broker", -1);
+            gfx_text(F_SANS, PAD + 14, ty, C_BRAND, 16, "+ Add broker", -1);
             gfx_rect(PAD, ry + 52, SCREEN_W - 2 * PAD, 1, C_LINE2);
             break;
         case ROW_SOUND:
@@ -1498,7 +1639,7 @@ void ui_draw_settings(const Model *m, const AppConfig *c, const SettingsState *s
             else if (c->dim_after_s) snprintf(buf, sizeof buf, "%d MIN", c->dim_after_s / 60);
             else snprintf(buf, sizeof buf, "NEVER");
             gfx_text(F_SANS, PAD + 14, ty, on ? C_TEXT : C_TEXT2, 16, label, -1);
-            gfx_text(F_MONO, SCREEN_W - PAD - 14 - gfx_text_width(F_MONO, 13, buf, -1), ty + 2, C_AMBER, 13, buf, -1);
+            gfx_text(F_MONO, SCREEN_W - PAD - 14 - gfx_text_width(F_MONO, 13, buf, -1), ty + 2, C_BRAND, 13, buf, -1);
             break;
         }
         case ROW_EXIT:

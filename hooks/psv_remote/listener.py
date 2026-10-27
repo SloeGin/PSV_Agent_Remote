@@ -7,7 +7,6 @@ a stop reply leaves a flag file that the PostToolUse hook turns into a hard stop
 """
 
 import json
-import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -16,10 +15,9 @@ from . import topics
 from .bus import Bus, BusError
 from .config import Config
 from .pending import _safe
+from .replies import ReplyLedger, parse_reply
 
 FRAME = "Message from the user, sent from their PS Vita remote: "
-KINDS = {"text", "stop", "cancel"}
-SEEN_MAX = 32
 
 
 def stop_flag(state_dir: Path, sid: str) -> Path:
@@ -32,23 +30,7 @@ def pid_file(state_dir: Path, sid: str) -> Path:
     return Path(state_dir) / f"{_safe(sid)}.listener"
 
 
-def _seen_file(state_dir: Path, sid: str) -> Path:
-    return Path(state_dir) / f"{_safe(sid)}.replies"
-
-
-def _parse(payload: bytes) -> dict | None:
-    try:
-        msg = json.loads(payload)
-    except (ValueError, UnicodeDecodeError):
-        return None
-    if not isinstance(msg, dict):
-        return None
-    rid, kind, text = msg.get("id"), msg.get("kind"), msg.get("text", "")
-    if not isinstance(rid, str) or not rid or len(rid) > 64 or kind not in KINDS or not isinstance(text, str):
-        return None
-    if kind == "text" and not text.strip():
-        return None
-    return {"id": rid, "kind": kind, "text": text.strip()}
+_parse = parse_reply
 
 
 class Listener:
@@ -63,18 +45,10 @@ class Listener:
     # ---- bookkeeping ----
 
     def _seen(self) -> list[str]:
-        try:
-            return _seen_file(self._dir, self._sid).read_text().split()
-        except FileNotFoundError:
-            return []
+        return ReplyLedger(self._dir, self._sid).seen()
 
     def _mark_seen(self, rid: str) -> None:
-        ids = [i for i in self._seen() if i != rid][-(SEEN_MAX - 1):] + [rid]
-        self._dir.mkdir(parents=True, exist_ok=True)
-        path = _seen_file(self._dir, self._sid)
-        tmp = path.with_name(f"{path.name}.{os.getpid()}")
-        tmp.write_text("\n".join(ids) + "\n")
-        os.replace(tmp, path)  # another listener never reads a half-written list
+        ReplyLedger(self._dir, self._sid).mark(rid)
 
     def _state(self, rid: str, state: str) -> None:
         payload = json.dumps({"id": rid, "state": state}).encode()

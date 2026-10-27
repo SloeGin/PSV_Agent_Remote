@@ -35,6 +35,7 @@ typedef struct {
 
 typedef struct {
     char draft[REPLY_BYTES];
+    bool allow_text, allow_stop; /* resolved session capabilities */
     char sent[REPLY_BYTES]; /* text of the reply in flight */
     bool sent_typed;        /* typed, not a preset: it goes back to the draft if it is not delivered */
     char id[24];

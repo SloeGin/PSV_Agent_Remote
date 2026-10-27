@@ -25,7 +25,7 @@ _ENV = {
 
 @dataclass(frozen=True)
 class Config:
-    broker_host: str = "192.168.2.222"
+    broker_host: str = "127.0.0.1"
     broker_port: int = 1883
     wait_timeout_s: float = 120.0
     connect_timeout_s: float = 2.0

@@ -117,6 +117,11 @@ unsigned model_on_status(Model *m, const char *sid, const StatusMsg *st, uint64_
     if (ev & MEV_IDLE) s->unseen = true;
     else if (st->state != ST_IDLE) s->unseen = false;
     s->state = st->state;
+    s->agent = st->agent;
+    s->capabilities_present = st->capabilities_present;
+    memcpy(s->capabilities, st->capabilities, sizeof s->capabilities);
+    s->reply.allow_text = session_capability(s, CAP_REPLY) == CAP_SUPPORTED;
+    s->reply.allow_stop = session_capability(s, CAP_STOP) == CAP_SUPPORTED;
     if (st->project[0]) snprintf(s->project, sizeof s->project, "%s", st->project);
     if (st->cwd[0]) snprintf(s->cwd, sizeof s->cwd, "%s", st->cwd);
     snprintf(s->summary, sizeof s->summary, "%s", st->summary);
@@ -203,10 +208,23 @@ Session *model_find(Model *m, const char *sid) {
     return i >= 0 ? &m->s[i] : NULL;
 }
 
-bool model_reply_idle(const Session *s) { return s->n_reqs == 0 && s->state == ST_IDLE; }
+const char *agent_name(AgentKind agent) {
+    return agent == AGENT_CODEX ? "Codex" : agent == AGENT_CLAUDE ? "Claude Code" : "Agent";
+}
+
+Capability session_capability(const Session *s, CapabilityKind kind) {
+    if (!s || (unsigned)kind >= CAP_COUNT) return CAP_UNKNOWN;
+    if (!s->capabilities_present && s->agent == AGENT_CLAUDE) return CAP_SUPPORTED;
+    return s->capabilities[kind];
+}
+
+bool model_reply_idle(const Session *s) {
+    return s->n_reqs == 0 && s->state == ST_IDLE && s->reply.allow_text;
+}
 
 bool model_reply_working(const Session *s) {
-    return s->n_reqs == 0 && (s->state == ST_RUNNING || s->state == ST_WAITING);
+    return s->n_reqs == 0 && (s->state == ST_RUNNING || s->state == ST_WAITING) &&
+           (s->reply.allow_text || s->reply.allow_stop);
 }
 
 const Request *model_current_request(const Model *m) {
@@ -248,7 +266,7 @@ int model_row_count(const Request *r) {
     if (r->kind == REQ_APPROVAL) return r->n_opts;
     if (r->step >= r->n_questions) return 3; /* Send, Change, Answer on Mac */
     const Question *q = &r->questions[r->step];
-    return q->n_opts + 1 + (q->multi ? 1 : 0) + 1; /* options, Other, [Next], Mac */
+    return q->n_opts + (!q->no_other ? 1 : 0) + (q->multi ? 1 : 0) + 1;
 }
 
 QRow model_row_kind(const Request *r, int row, int *option) {
@@ -264,8 +282,11 @@ QRow model_row_kind(const Request *r, int row, int *option) {
         return ROW_OPTION;
     }
     row -= q->n_opts;
-    if (row == 0) return ROW_OTHER;
-    if (q->multi && row == 1) return ROW_NEXT;
+    if (!q->no_other) {
+        if (row == 0) return ROW_OTHER;
+        row--;
+    }
+    if (q->multi && row == 0) return ROW_NEXT;
     return ROW_MAC;
 }
 
@@ -389,6 +410,7 @@ void model_submit_other(Model *m, const char *sid, const char *rid, const char *
     Request *r = same_request(m, sid, rid, now);
     if (!r || r->kind != REQ_QUESTION || r->step >= r->n_questions || !text[0]) return;
     int q = r->step;
+    if (r->questions[q].no_other) return;
     utf8_copy(r->other[q], OTHER_BYTES, text, strlen(text));
     if (!r->questions[q].multi) {
         r->picked[q] = 0;

@@ -11,7 +11,7 @@ static void t_defaults(void) {
     AppConfig c;
     config_defaults(&c);
     CHECK(c.n_brokers == 1);
-    CHECK_STR(c.brokers[0].host, "192.168.2.222");
+    CHECK_STR(c.brokers[0].host, "192.168.1.20");
     CHECK(c.brokers[0].port == 1883);
     CHECK(c.active == 0 && c.sound == 1 && c.dim_after_s == 300 && c.front_touch == 1);
     CHECK(c.mode == MODE_SOFA);
@@ -126,7 +126,7 @@ static void t_plain_roundtrip_unchanged(void) {
     config_defaults(&a);
     char buf[512];
     CHECK(config_serialize(&a, buf, sizeof buf) > 0);
-    CHECK_STR(buf, "# PSV Agent Remote\nbroker=192.168.2.222:1883\nactive=0\nsound=1\nfront_touch=1\n"
+    CHECK_STR(buf, "# PSV Agent Remote\nbroker=192.168.1.20:1883\nactive=0\nsound=1\nfront_touch=1\n"
                    "dim_after_s=300\nmode=sofa\n");
 }
 

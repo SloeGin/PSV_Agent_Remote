@@ -40,6 +40,7 @@ typedef struct {
 
 typedef struct {
     int session_dir;
+    bool held; /* physical input still down; modal dismissal waits for release */
     int scroll_lines; /* positive = content moves up (read further down) */
     int sel_dir;
     bool confirm, square, toggle_mode, settings, sessions, back, quit; /* quit comes from the settings page */

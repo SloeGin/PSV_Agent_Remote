@@ -140,10 +140,10 @@ static void t_ime_replace_toast(void) {
     AppConfig c;
     config_defaults(&c);
     SettingsState s = {.open = true};
-    CHECK(settings_ime_result(&s, &c, "tls://192.168.2.222:1883", 0) == SET_CHANGED);
+    CHECK(settings_ime_result(&s, &c, "tls://192.168.1.20:1883", 0) == SET_CHANGED);
     CHECK_STR(s.toast, "Now encrypted");
     CHECK(c.n_brokers == 1 && c.brokers[0].tls);
-    CHECK(settings_ime_result(&s, &c, "192.168.2.222:1883", 0) == SET_NONE); /* no silent downgrade */
+    CHECK(settings_ime_result(&s, &c, "192.168.1.20:1883", 0) == SET_NONE); /* no silent downgrade */
     CHECK(c.brokers[0].tls);
     CHECK_STR(s.toast, "Remove it first to make it unencrypted");
 }

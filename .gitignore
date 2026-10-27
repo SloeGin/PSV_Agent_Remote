@@ -6,5 +6,34 @@ vita/build/
 *.psp2dmp
 debug.log
 
+# Private configuration, credentials and runtime captures
+.env
+.env.*
+!.env.example
+psk.txt
+*.psk
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+.DS_Store
+*.vsix
+*.vpk
+
 .vscode
 .claude
+
+# Local Codex probes, lab scripts, tests, and runtime research records
+/.local/codex-probes/
+
+# VS Code extension build outputs and dependencies
+/vscode-extension/node_modules/
+/vscode-extension/runtime/
+/vscode-extension/dist/

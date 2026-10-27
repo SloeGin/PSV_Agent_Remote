@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Remote mock</title>
+<link rel="stylesheet" href="themes.css">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -12,21 +13,15 @@
   --amber:#ffb35c; --amber-deep:#6b4a25; --teal:#5fc9b8; --teal-deep:#2d5b54; --rose:#ff7a6b;
   --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Space Grotesk','Noto Sans SC',sans-serif; --cjk:'Noto Sans SC',sans-serif;
 }
-.scr[data-agent="codex"]{
-  --bg:#0d1512; --panel:#111b17; --bar:#0f1e19; --sheet:#101915;
-  --line:#1f362d; --line2:#192b24; --tabon:#172b22; --hintbg:#0a130e;
-  --text:#e7f3ed; --text2:#bed3c7; --muted:#8da99a; --dim:#597466;
-  --brand:#10A37F;
-}
-.scr[data-agent="codex"] .logo b{color:inherit}
+.scr[data-theme="codex"] .logo b,.scr[data-theme="app"] .logo b{color:inherit}
 *{box-sizing:border-box}
-body{margin:0;background:#0d0a08;color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px}
-h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4px}
+body{margin:0;background:#0e100a;color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px}
+h1{font:500 15px var(--mono);letter-spacing:2px;color:#DDD23B;margin:0 0 4px}
 .sub{font-size:13px;color:var(--muted);margin:0 0 18px}
 .stage{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
 .vita{background:#0b0908;border:1px solid #2a221d;border-radius:120px;padding:26px 150px}
 .screenwrap{width:960px;height:544px;position:relative;transform-origin:top left}
-.scr{width:960px;height:544px;background:var(--bg);position:relative;overflow:hidden;border-radius:4px;user-select:none}
+.scr{width:960px;height:544px;background:var(--bg);color:var(--text);position:relative;overflow:hidden;border-radius:4px;user-select:none}
 .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);z-index:40}
 /* top bar */
 .top{position:absolute;left:0;right:0;top:0;height:44px;background:var(--bar);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:6px;z-index:5}
@@ -128,7 +123,7 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .rows{position:absolute;top:80px;left:16px;right:16px}
 .row{height:44px;display:flex;align-items:center;gap:12px;padding:0 14px;border-radius:8px;font-size:16px;color:var(--text2)}
 .row.on{background:var(--tabon);color:var(--text);outline:1px solid var(--line)}
-.row .tag{margin-left:auto;font:12px var(--mono)} .row .val{margin-left:auto;font:13px var(--mono);color:var(--amber)}
+.row .tag{margin-left:auto;font:12px var(--mono)} .row .val{margin-left:auto;font:13px var(--mono);color:var(--brand)}
 .sep{height:1px;background:var(--line2);margin:8px 0}
 /* session list */
 .lrow{display:flex;align-items:center;gap:14px;height:58px;padding:0 14px;border-radius:9px;border:1px solid transparent;margin-bottom:4px}
@@ -142,16 +137,16 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .modal .d{font-size:14px;color:var(--muted);line-height:21px;margin-bottom:16px}
 .modal .bs{display:flex;gap:10px}
 .modal .b{flex:1;height:42px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;color:var(--text2);position:relative;overflow:hidden}
-.modal .b.sel{background:var(--amber);border-color:var(--amber);color:var(--bg)}
+.modal .b.sel{background:var(--brand);border-color:var(--brand);color:var(--bg)}
 .modal .b.sel.danger{background:var(--rose);border-color:var(--rose)}
 .agent-icon{width:24px;height:24px;flex:none;display:block}
 .agent-icon.claude{color:#d9a180}.agent-icon.codex{color:#10A37F}
-.cap-tooltip{position:absolute;inset:44px 0 30px;background:rgba(5,12,8,.72);z-index:29;display:flex;align-items:center;justify-content:center}
+.cap-tooltip{position:absolute;inset:44px 0 30px;background:rgba(5,8,3,.72);color:var(--text);z-index:29;display:flex;align-items:center;justify-content:center}
 .cap-tooltip .box{width:610px;padding:22px 26px;background:var(--bar);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 60px #0008}
 .cap-tooltip .title{font-size:22px;margin-bottom:4px}.cap-tooltip .intro{color:var(--muted);font-size:13px;line-height:20px;margin-bottom:14px}
 .cap-row{display:flex;align-items:center;gap:16px;padding:9px 0;border-top:1px solid var(--line2)}
 .cap-row .name{width:100px;font-size:15px}.cap-row .desc{flex:1;font-size:13px;color:var(--text2)}
-.cap-row .value{font:11px var(--mono);color:var(--teal)}.cap-row .value.unknown{color:var(--muted)}
+.cap-row .value{font:11px var(--mono);color:var(--brand)}.cap-row .value.unknown{color:var(--muted)}
 .cap-tooltip .dismiss{font:11px var(--mono);letter-spacing:1px;color:var(--muted);margin-top:16px}
 /* side panel */
 .sidep{width:360px;font-size:13px;color:var(--text2)}
@@ -171,6 +166,7 @@ kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-rad
 <body>
 <h1>AGENT//REMOTE — UX MOCK</h1>
 <p class="sub">Native 960×544 Vita screen. Keyboard, mouse and the panel on the right drive it like the real device.</p>
+<p class="sub"><a href="branding.html" style="color:#DDD23B">App icon &amp; LiveArea preview →</a></p>
 
 <div class="stage">
   <div class="vita"><div class="screenwrap" id="sw"><div class="scr" id="scr">
@@ -182,7 +178,17 @@ kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-rad
     <div class="scan"></div>
   </div></div></div>
 
-  <div class="sidep">
+  <div class="sidep" data-theme="app">
+    <div class="card">
+      <h2>THEME PREVIEW</h2>
+      <div class="btns" id="views">
+        <button data-view="sessions">Session management</button>
+        <button data-view="settings">Settings</button>
+        <button data-view="claude">Claude capabilities</button>
+        <button data-view="codex">Codex capabilities</button>
+      </div>
+      <p class="small">Application pages use #DDD23B. The capabilities popup follows the highlighted Agent. Sofa, Desk and YOU keep their own colors.</p>
+    </div>
     <div class="card">
       <h2>CONTROLS</h2>
       <div class="keys">
@@ -287,7 +293,7 @@ function reset(){
     ],
     cur:0, sel:-1, shownKey:'', shownAt:now(), mode:'sofa', net:'up', scroll:0, sheetScroll:0, sheetHidden:false,
     list:{open:false, cursor:0, confirm:null, tooltip:false},
-    settings:{open:false, cursor:0, brokers:[{host:'192.168.2.222',port:1883},{host:'10.0.0.8',port:1883}], active:0, connected:0, sound:true, dim:5},
+    settings:{open:false, cursor:0, brokers:[{host:'192.168.1.20',port:1883},{host:'10.0.0.8',port:1883}], active:0, connected:0, sound:true, dim:5},
     ime:null, banner:null, toast:null, dimmed:false, cursor:null, lastInput:now(),
   };
 }
@@ -520,7 +526,7 @@ function capabilitiesHtml(){
   const session=S.sessions[S.list.cursor];
   if(!session) return '';
   const codex=session.agent==='codex';
-  return `<div class="cap-tooltip" role="dialog" aria-modal="true" aria-label="Session capabilities"><div class="box">
+  return `<div class="cap-tooltip" data-theme="${codex?'codex':'claude'}" role="dialog" aria-modal="true" aria-label="Session capabilities"><div class="box">
     <div class="title">${esc(session.project)} · Capabilities</div>
     <div class="intro">${codex?'Codex':'Claude Code'} · Available controls for this session.</div>
     ${CAPABILITIES.map(([key,label,desc])=>{const supported=session.capabilities[key]===true;return `<div class="cap-row"><span class="name">${label}</span><span class="desc">${desc}</span><span class="value ${supported?'':'unknown'}">${supported?'SUPPORTED':'UNVERIFIED'}</span></div>`;}).join('')}
@@ -540,7 +546,7 @@ function mainHtml(){
     const st=S.settings;
     const rows=setRows().map((row,idx)=>{ const on=idx===st.cursor?'on':'';
       if(row.k==='broker'){ const b=st.brokers[row.i]; const tag=row.i===st.connected?`<span class="tag" style="color:var(--teal)">● CONNECTED</span>`:row.i===st.active?`<span class="tag" style="color:var(--amber)">CONNECTING…</span>`:''; return `<div class="row ${on}"><span style="font-family:var(--mono)">${b.host}:${b.port}</span>${tag}</div>`; }
-      if(row.k==='add') return `<div class="row ${on}" style="color:var(--amber)">+ Add broker</div><div class="sep"></div>`;
+      if(row.k==='add') return `<div class="row ${on}" style="color:var(--brand)">+ Add broker</div><div class="sep"></div>`;
       if(row.k==='sound') return `<div class="row ${on}">Sounds<span class="val">${st.sound?'ON':'OFF'}</span></div>`;
       if(row.k==='dim') return `<div class="row ${on}">Dim screen after<span class="val">${st.dim?st.dim+' MIN':'NEVER'}</span></div>`;
       return `<div class="sep"></div><div class="row ${on}" style="color:var(--rose)">Exit Agent Remote</div>`; }).join('');
@@ -620,6 +626,7 @@ let imeFocused=false;
 function render(){
   syncView();
   $('scr').dataset.agent=cur()?.agent || 'claude';
+  $('scr').dataset.theme=S.list.open || S.settings.open ? 'app' : (cur()?.agent || 'claude');
   $('top').innerHTML = topHtml();
   $('main').innerHTML = mainHtml();
   const r = !S.settings.open && !S.list.open && pend();
@@ -689,6 +696,20 @@ $('sims').onclick = e=>{
   render();
 };
 document.querySelectorAll('[data-scale]').forEach(b=>b.onclick=()=>{ scale=+b.dataset.scale; const sw=$('sw'); sw.style.transform=`scale(${scale})`; sw.style.width=960*scale+'px'; sw.style.height=544*scale+'px'; });
+$('views').onclick=e=>{
+  const view=e.target.closest('[data-view]')?.dataset.view;
+  if(!view) return;
+  S.settings.open=false;
+  if(view==='settings'){ S.list.open=false; S.list.tooltip=false; S.settings.open=true; }
+  else {
+    openList();
+    if(view!=='sessions'){
+      const index=S.sessions.findIndex(session=>session.agent===view);
+      if(index>=0){ S.list.cursor=index; S.list.tooltip=true; }
+    }
+  }
+  render();
+};
 render();
 </script>
 </body>

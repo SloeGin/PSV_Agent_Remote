@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Remote — App identity preview</title>
+<link rel="stylesheet" href="themes.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0e100a;color:var(--text);font-family:'Space Grotesk',sans-serif;padding:36px 24px 64px}main{max-width:1100px;margin:auto}a{color:var(--brand);text-decoration:none}a:hover{text-decoration:underline}.eyebrow,h2{font:500 11px 'JetBrains Mono',monospace;letter-spacing:2px;color:var(--muted)}h1{font-size:34px;font-weight:500;letter-spacing:-1px;margin:18px 0 10px}p{color:var(--text2);font-size:14px;line-height:1.7;margin:8px 0}.intro{max-width:660px}.swatch{display:inline-flex;gap:10px;align-items:center;border:1px solid var(--line);padding:8px 12px;border-radius:7px;font:12px 'JetBrains Mono',monospace;color:var(--brand);margin:14px 0 26px}.swatch i{width:16px;height:16px;background:var(--brand);border-radius:4px}.previews{display:grid;grid-template-columns:220px 1fr;gap:20px}.card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:22px}.card h2{margin:0 0 22px}.bubble{width:152px;height:152px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 25%,#454d2d,#161a10 75%);box-shadow:inset 0 1px 2px #8a986455,0 12px 28px #0006;margin:30px auto 16px}.bubble img{width:108px;height:108px;border-radius:26px}.app-name{text-align:center;font-size:15px;color:var(--text)}.icon-small{display:flex;justify-content:center;align-items:center;gap:16px;margin:30px 0 12px}.icon-small img{width:64px;height:64px}.dim{font:11px 'JetBrains Mono',monospace;color:var(--muted)}.livearea{position:relative;aspect-ratio:840/500;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}.livearea>.bg{display:block;width:100%}.launch{position:absolute;width:33.333%;left:33.333%;top:46%;border:0;background:transparent;padding:0;cursor:pointer;border-radius:12px;transition:filter .15s,transform .15s}.launch img{display:block;width:100%;box-shadow:0 12px 32px #0007;border-radius:12px}.launch:hover{filter:brightness(1.12);transform:translateY(-2px)}.launch:focus-visible{outline:2px solid var(--brand);outline-offset:4px}.bottom{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:14px}.footer{border-top:1px solid var(--line2);margin-top:26px;padding-top:16px}#launch-note{min-height:24px;color:var(--brand)}@media(max-width:760px){.previews{grid-template-columns:1fr}.bubble{margin-top:10px}.card{padding:16px}h1{font-size:28px}}
+</style>
+</head>
+<body data-theme="app"><main>
+<a href="index.html">← Interactive app mock</a>
+<div class="eyebrow" style="margin-top:28px">APPLICATION IDENTITY · PREVIEW ONLY</div>
+<h1>AGENT<span style="color:var(--brand)">//</span>REMOTE</h1>
+<p class="intro">One application color across session management, settings, the Vita home icon and LiveArea. Conversations and capability popups retain their Agent palettes.</p>
+<div class="swatch"><i></i>#DDD23B</div>
+<div class="previews">
+  <section class="card"><h2>HOME SCREEN ICON</h2>
+    <div class="bubble"><img src="assets/app-icon.svg" alt="Agent Remote terminal icon in olive yellow"></div>
+    <div class="app-name">Agent Remote</div>
+    <div class="icon-small"><img src="assets/app-icon.svg" alt="Small icon preview"><span class="dim">128 × 128<br>source canvas</span></div>
+    <p>Terminal mark and indicator share the application accent. The dark olive surface keeps the same low-light character.</p>
+  </section>
+  <section class="card"><h2>LIVEAREA · 840 × 500</h2>
+    <div class="livearea"><img class="bg" src="assets/livearea.svg" alt="Olive Agent Remote LiveArea with a striped sun and perspective grid">
+      <button class="launch" id="launch" aria-label="Preview launch tile"><img src="assets/startup.svg" alt="Agent Remote launch tile"></button>
+    </div>
+    <div class="bottom"><span class="dim">Launch tile · 280 × 158</span><span class="dim">PlayStation button colors stay unchanged</span></div>
+    <p id="launch-note" role="status"></p>
+  </section>
+</div>
+<p class="footer">Color reference for the Vita implementation. Conversations keep their Agent palettes; status and controller colors remain independent.</p>
+</main><script>
+document.getElementById('launch').onclick=()=>{document.getElementById('launch-note').textContent='Preview only · use the interactive app mock to explore the interface.';};
+</script></body>
+</html>

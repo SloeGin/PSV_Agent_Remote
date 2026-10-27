@@ -7,6 +7,9 @@
 #include "reply.h"
 
 typedef enum { ST_UNKNOWN, ST_RUNNING, ST_WAITING, ST_IDLE } SessState;
+typedef enum { AGENT_CLAUDE, AGENT_CODEX, AGENT_UNKNOWN } AgentKind;
+typedef enum { CAP_UNKNOWN, CAP_SUPPORTED, CAP_UNSUPPORTED } Capability;
+typedef enum { CAP_APPROVAL, CAP_QUESTIONS, CAP_REPLY, CAP_STOP, CAP_COUNT } CapabilityKind;
 
 /* An approval option ("allow", "deny_note", ...). */
 typedef struct {
@@ -29,6 +32,7 @@ typedef struct {
     QOption opts[MAX_QOPTS];
     int n_opts;
     bool multi;
+    bool no_other; /* absent allow_other remains compatible with old Claude requests */
 } Question;
 
 typedef enum { REQ_APPROVAL, REQ_QUESTION } ReqKind;
@@ -60,12 +64,16 @@ void request_free(Request *r);
 
 typedef struct {
     SessState state;
+    AgentKind agent;
+    bool capabilities_present;
+    Capability capabilities[CAP_COUNT];
     char project[64];
     char cwd[160];
     char summary[SUMMARY_BYTES];
 } StatusMsg;
 
-typedef enum { TURN_YOU, TURN_CLAUDE, TURN_TOOL, TURN_NOTE } TurnKind;
+typedef enum { TURN_YOU, TURN_ASSISTANT, TURN_TOOL, TURN_NOTE } TurnKind;
+#define TURN_CLAUDE TURN_ASSISTANT /* legacy source compatibility */
 
 typedef struct {
     TurnKind kind;
@@ -89,6 +97,9 @@ typedef struct {
     char project[64];
     char cwd[160];
     SessState state;
+    AgentKind agent;
+    bool capabilities_present;
+    Capability capabilities[CAP_COUNT];
     char summary[SUMMARY_BYTES];
     unsigned summary_rev; /* bumped on every status update, for render caches */
     TurnItem *turn;       /* this turn's conversation; malloc'd array */
@@ -135,6 +146,8 @@ Session *model_find(Model *m, const char *sid);
 /* Which reply drawer a session gets; both false while a decision is pending or the state is unknown. */
 bool model_reply_idle(const Session *s);
 bool model_reply_working(const Session *s);
+Capability session_capability(const Session *s, CapabilityKind kind);
+const char *agent_name(AgentKind agent);
 const Request *model_current_request(const Model *m);
 int model_pending_count(const Model *m);
 bool model_request_expired(const Request *r, uint64_t now);

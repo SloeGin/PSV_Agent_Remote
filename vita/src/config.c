@@ -16,7 +16,7 @@
 
 void config_defaults(AppConfig *c) {
     memset(c, 0, sizeof *c);
-    strcpy(c->brokers[0].host, "192.168.2.222");
+    strcpy(c->brokers[0].host, "192.168.1.20");
     c->brokers[0].port = DEFAULT_PORT;
     c->n_brokers = 1;
     c->active = 0;

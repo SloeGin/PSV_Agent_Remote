@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#252a17"/><stop offset="1" stop-color="#15170f"/></linearGradient>
+    <pattern id="scan" width="1" height="3" patternUnits="userSpaceOnUse"><path d="M0 .5H128" stroke="#e9ebd9" stroke-opacity=".025"/></pattern>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+  <rect x="10" y="22" width="108" height="84" rx="12" fill="#202417" stroke="#4b5430" stroke-width="2"/>
+  <path d="m25 44 15 14-15 14m24 0h23" fill="none" stroke="#DDD23B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="101" cy="34" r="4" fill="#DDD23B"/>
+  <text x="23" y="96" fill="#969b77" font-family="monospace" font-size="11" letter-spacing="3">A//R</text>
+  <rect width="128" height="128" rx="24" fill="url(#scan)"/>
+</svg>

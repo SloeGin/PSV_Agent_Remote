@@ -23,7 +23,7 @@ KEYS = {"a": "allow", "A": "allow_always", "d": "deny", "D": "deny_stop"}
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="192.168.2.222")
+    parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=1883)
     parser.add_argument("--mode", choices=("sofa", "desk"), default="sofa")
     parser.add_argument("--auto", choices=("allow", "deny", "none"))

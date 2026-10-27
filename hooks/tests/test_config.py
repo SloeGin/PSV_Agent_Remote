@@ -4,7 +4,7 @@ from psv_remote.config import load_config
 
 def test_defaults(tmp_path):
     c = load_config(env={}, path=tmp_path / "missing.toml")
-    assert c.broker_host == "192.168.2.222" and c.broker_port == 1883
+    assert c.broker_host == "127.0.0.1" and c.broker_port == 1883
     assert c.wait_timeout_s == 120.0 and c.enabled is True
 
 

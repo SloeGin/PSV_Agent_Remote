@@ -13,6 +13,17 @@ void list_open(SessionList *l, const Model *m) {
 
 ListResult list_handle(SessionList *l, Model *m, const Actions *a, uint64_t now, char removed_sid[64]) {
     if (l->cursor >= m->n) l->cursor = m->n > 0 ? m->n - 1 : 0;
+    if (l->swallow) {
+        if (!a->held && !actions_any(a)) l->swallow = false;
+        return LIST_NONE;
+    }
+    if (l->tooltip) {
+        if (a->held || actions_any(a)) {
+            l->tooltip = false;
+            l->swallow = true;
+        }
+        return LIST_NONE;
+    }
     int lines = actions_cursor_lines(a);
     int step = lines ? lines : a->sel_dir;
 
@@ -44,6 +55,12 @@ ListResult list_handle(SessionList *l, Model *m, const Actions *a, uint64_t now,
     if (a->back || a->sessions) {
         l->open = false;
         return LIST_CLOSED;
+    }
+    if (a->toggle_mode && m->n) {
+        l->tooltip = true;
+        l->swallow = true;
+        snprintf(l->tooltip_sid, sizeof l->tooltip_sid, "%s", m->s[l->cursor].sid);
+        return LIST_NONE;
     }
     if (step && m->n) {
         l->cursor += step > 0 ? 1 : -1;

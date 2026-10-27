@@ -43,3 +43,10 @@ class PendingTracker:
 
     def clear(self) -> None:
         shutil.rmtree(self._dir, ignore_errors=True)
+
+    def ids(self) -> list[str]:
+        """All persisted markers, including stale ones needing broker cleanup."""
+        try:
+            return [marker.name for marker in self._dir.iterdir() if marker.is_file()]
+        except FileNotFoundError:
+            return []

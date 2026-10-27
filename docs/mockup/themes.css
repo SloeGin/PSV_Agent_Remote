@@ -1,0 +1,19 @@
+/* Independent application identity; Agent palettes are scoped to their own surfaces. */
+[data-theme="claude"] {
+  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612;
+  --line:#3a2f27; --line2:#2f2620; --tabon:#2e2520; --hintbg:#14100d;
+  --text:#f1e6d6; --text2:#c9bba9; --muted:#9c8f80; --dim:#6b5a4a;
+  --brand:#ffb35c;
+}
+[data-theme="codex"] {
+  --bg:#0d1512; --panel:#111b17; --bar:#0f1e19; --sheet:#101915;
+  --line:#1f362d; --line2:#192b24; --tabon:#172b22; --hintbg:#0a130e;
+  --text:#e7f3ed; --text2:#bed3c7; --muted:#8da99a; --dim:#597466;
+  --brand:#10A37F;
+}
+[data-theme="app"] {
+  --bg:#15170f; --panel:#1c1f14; --bar:#202417; --sheet:#191d12;
+  --line:#3a4129; --line2:#2c321f; --tabon:#2b3120; --hintbg:#11140c;
+  --text:#e9ebd9; --text2:#c6c9aa; --muted:#969b77; --dim:#606747;
+  --brand:#DDD23B;
+}

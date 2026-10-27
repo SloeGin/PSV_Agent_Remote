@@ -3,7 +3,7 @@
 > Summarized from the community's authoritative guide, **https://vita.hacks.guide** (checked 2026-10). Before each step, open the matching page of the original guide and check it — URLs and steps may change.
 > Any system modification carries a risk of **bricking** your device; you do this at your own risk. Keep the **charger plugged in** throughout, and don't let the device go to sleep midway.
 
-**Your route (firmware 3.73)**: update to 3.74 → temporary hack with HENlo → use VitaDeploy to install 3.65 + Ensō for a permanent hack → finalize setup → install VitaShell.
+**Example route (starting from firmware 3.73)**: update to 3.74 → temporary hack with HENlo → use VitaDeploy to install 3.65 + Ensō for a permanent hack → finalize setup → install VitaShell. For other firmware versions, follow the matching route in the original guide.
 
 ## 0. Preparation
 
@@ -13,7 +13,7 @@
 - Wi‑Fi with internet access (needed to download components).
 - Confirm button: this project is designed for **✕ = confirm** (Western layout).
 
-## 1. Update from 3.73 to 3.74 (required, since your device is on 3.73)
+## 1. Update from 3.73 to 3.74 (only when starting from 3.73)
 
 HENlo only supports 3.65, 3.68 and 3.74. **3.73 cannot be hacked directly**; you must update to 3.74 first.
 
@@ -75,11 +75,11 @@ Find **VitaShell** in VitaDeploy's **App downloader** and install it. If it isn'
 
 ## 6. Install PSV Agent Remote
 
-1. Build `psv_agent_remote.vpk` on your computer (see `vita/README` for build steps; to be filled in once the project is ready).
+1. Build `psv_agent_remote.vpk` on your computer using the [Vita build guide](../vita/README.md).
 2. On the Vita, open VitaShell and press **SELECT** to start FTP; the screen shows `ftp://192.168.x.x:1337`.
 3. On your computer, upload the VPK to `ux0:/` with an FTP client. (Finder's "Connect to Server" is read-only; use Cyberduck or FileZilla, or the command line: `curl -T psv_agent_remote.vpk ftp://<Vita's IP>:1337/ux0:/`.)
 4. In VitaShell, find the VPK, press ✕ → install.
-5. Once the icon appears on the home screen, open it. Before the first run, you can edit `ux0:data/psv_agent_remote/config.txt` to confirm the broker address is `192.168.2.222:1883`.
+5. Open the app, press START → Add broker, and enter your MQTT broker's address. Select it to connect. `192.168.1.20:1883` is an example; replace it with your actual address.
 
 ## 6.5 Hacked without a memory card; VitaDeploy and other apps vanish after inserting one
 
@@ -95,5 +95,5 @@ If the browser page in step 2 won't open on an already-hacked device, boot witho
 
 ## 7. Network notes (specific to this project)
 
-- The Vita's Wi‑Fi must be on the **same local network** as pop-os (`192.168.2.222`).
+- The Vita's Wi‑Fi must be on the **same local network** as the MQTT broker host.
 - First-generation models (PCH-1000) only support **2.4 GHz** Wi‑Fi; use WPA2 encryption. If your router only has 5 GHz enabled, or only WPA3, the Vita can't connect.

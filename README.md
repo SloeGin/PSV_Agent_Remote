@@ -1,110 +1,202 @@
 # PSV Agent Remote
 
-A PlayStation Vita companion for coding agents. When the agent needs a decision, the Vita lights up and chimes: you read the request, approve or deny it, or answer the agent's question, without going back to your computer. When a session finishes its turn, the Vita tells you it is idle, and you can reply from the Vita to keep it going.
+Use a PlayStation Vita to read requests from your coding agent, approve commands,
+answer questions, send a follow-up message, or stop a running turn. The computer
+and Vita exchange messages through an MQTT broker on your network.
 
-It currently works with **Claude Code** (terminal CLI and the VS Code extension).
+## Agent support
+
+| Agent | Install once | What starts the connection? |
+|---|---|---|
+| **Claude Code — CLI and VS Code** | Install the Claude hooks | Claude starts the hooks and reply listener automatically for each session. No separate bridge service to launch. |
+| **Codex — VS Code (experimental)** | Install the PSV Agent Remote VSIX | The extension automatically starts and manages a background bridge service when VS Code opens. No per-session setup. |
+| **Codex — CLI (experimental)** | Configure a shared Codex App Server endpoint | Run the shared App Server and the PSV bridge manager, or let the VS Code extension manage the bridge. Start the CLI through that shared server; ordinary standalone CLI sessions cannot be attached. |
+
+**An MQTT broker must be running for every option.** Claude's one-time hook
+installation and the Codex extension do not install or start the broker.
+
+Claude has been tested on hardware. Codex's supported approval, question, reply
+and stop paths have passed real local backend/MQTT tests; full Codex hardware
+acceptance remains pending. Codex offers fewer approval/question variants than
+Claude. See [Codex support and limitations](docs/codex-integration.md).
 
 ## Features
 
-- **Approvals on the Vita.** Tool permission requests appear with the full command or diff. Allow, allow for the session, deny, deny with a note typed on the Vita's keyboard, or deny and stop the agent.
-- **Answers to the agent's questions.** Single- and multiple-choice questions, including free-text "Other" answers, or hand the question back to the computer.
-- **Replies from the Vita.** Press □ on an idle session for one-press replies (**Continue**, **Verify it further**) or type your own. While the agent works, **待った!** stops it after its current step, like Esc at the computer, and a typed reply waits and goes in when the turn ends. The Vita shows whether each reply was delivered.
-- **The current turn at a glance.** Your prompt and the agent's latest reply, rendered as Markdown: bold, inline code, headings, lists, and tables and code blocks that scroll sideways.
-- **Several sessions at once.** One tab per session, a session list, a chime when another session needs you, and an idle notice when a session finishes.
-- **Sofa and desk modes.** In sofa mode decisions go to the Vita; in desk mode they stay on the computer. The mode follows the charger automatically (plugged in = desk, unplugged = sofa) and can be toggled by hand.
-- **Never blocks the agent.** If the Vita is offline, in desk mode, or does not answer in time, the request falls back to the agent's normal on-screen dialog.
-- **Optional encryption.** Brokers marked `tls://` use TLS with a pre-shared key, so nobody else on the network can read the traffic or answer for you.
+- **Remote decisions.** Read command or file-change requests, approve or deny
+  them, or answer the agent's questions. Available controls depend on the agent.
+- **Replies and stop.** Continue an idle session with a preset or typed message,
+  queue a reply while it works, or request a stop. Delivery progress appears on
+  the Vita.
+- **Readable conversations.** View your prompt and the agent's latest answer with
+  Markdown, scrolling, and horizontal panning for wide tables and code blocks.
+- **Multiple sessions.** Switch between sessions, hear a chime when one needs
+  attention, and inspect its supported controls in the session list.
+- **Sofa and desk modes.** Send decisions to the Vita in sofa mode, or handle them
+  on the computer in desk mode. Charging switches modes automatically.
+- **Desktop fallback.** Offline, expired and unsupported requests stay with the
+  agent's normal computer-side dialog.
+- **Optional TLS-PSK.** Encrypt the Vita-to-broker connection; see the
+  [encrypted setup](#encrypted-broker-tls-psk) for its computer-side requirements.
 
 ## How it works
 
-```
-Claude Code ──hooks──► psv_hook.py ──MQTT──► broker (Mosquitto) ◄──MQTT──► PS Vita app
-     ▲                      │
-     └── decision / answer ─┘
+```text
+Claude Code ── hooks ───────────────┐
+                                  ├── MQTT broker ── PS Vita
+Codex ── background bridge manager ┘
+          ↑ started by the VS Code extension, or run manually for CLI
 ```
 
-- `hooks/` is a Python hook that Claude Code runs on its events (session start/end, prompt, tool use, permission request, question, stop). It publishes the session state to an MQTT broker. For decisions, it waits for the Vita's reply.
-- `vita/` is the Vita app (C, VitaSDK, libvita2d). It subscribes to the broker, shows sessions and requests, and publishes your answers.
-- The broker is any MQTT 3.1.1 broker; the setup below uses Mosquitto 2.x.
+The VS Code extension is a local launcher and status interface for the Codex
+bridge service. It does not replace the official Codex extension or change
+Claude's hooks.
 
 ## Requirements
 
-- **A PS Vita running custom firmware** (HENkaku/Ensō) with VitaShell. A step-by-step guide (in Chinese) is in [docs/vita-hacking.md](docs/vita-hacking.md); the source it follows is [vita.hacks.guide](https://vita.hacks.guide).
-- **An MQTT broker** on your local network. Both the Vita and the machine running the agent must reach it.
-- **Python 3.11+** on the machine running Claude Code.
-- **Claude Code with `asyncRewake` hook support** for replies from the Vita (tested with 2.1.311). An older client that ignores `asyncRewake` would run the reply listener as an ordinary hook and stall each prompt; on such a version, remove the `psv_listen.py` entries from `~/.claude/settings.json`.
-- **VitaSDK** to build the app (see [vita/README.md](vita/README.md)).
+- A **PS Vita with custom firmware** and VitaShell. Guides:
+  [中文](docs/vita-hacking.zh.md) · [English](docs/vita-hacking.en.md).
+- An **MQTT 3.1.1 broker**, such as Mosquitto, reachable by the computer and Vita.
+- **Python 3.11+** on the computer running the agent.
+- For **Claude replies**, Claude Code with `asyncRewake` hook support (tested with
+  2.1.311). On older clients, omit the `psv_listen.py` hook entries.
+- **VitaSDK** to build the Vita app. Building the VSIX from source also needs
+  **Node.js 20+**, npm and Python with pip. These build tools are not needed to
+  install an already-built VSIX.
 
 ## Setup
 
-### 1. Broker
+### 1. Start the broker
 
-For a trusted network, a plaintext listener is enough. Mosquitto 2.x listens only on localhost by default, so add a LAN listener, for example in `/etc/mosquitto/conf.d/psv.conf`:
+For a trusted local network, a Mosquitto listener can use:
 
-```
+```conf
 listener 1883 0.0.0.0
 allow_anonymous true
 ```
 
-Restart Mosquitto and allow port 1883 through the host firewall. On a network you share with others, use the [encrypted setup](#encrypted-broker-tls-psk) instead.
+Add it to your Mosquitto configuration, start/restart the broker, and allow its
+port through the host firewall. This listener has no authentication or encryption;
+use the [TLS-PSK setup](#encrypted-broker-tls-psk) on shared networks.
 
-### 2. Hooks (on the machine running Claude Code)
+Example address throughout this guide: `192.168.1.20:1883`. Replace it with your
+broker's actual address.
+
+### 2. Connect your agent
+
+Choose either or both of the following integrations.
+
+#### Claude Code: one-time hook installation
+
+From the repository:
 
 ```bash
 cd hooks
 python3 -m venv .venv
-.venv/bin/pip install "paho-mqtt>=2.0" pytest
-.venv/bin/pytest -q
+.venv/bin/python -m pip install "paho-mqtt>=2.0"
 .venv/bin/python install.py
 ```
 
-`install.py` backs up `~/.claude/settings.json` and merges the hooks into it, including a background listener (`psv_listen.py`) that delivers replies from the Vita. The hooks point at this checkout, so reinstall if you move it or update to a version with new hooks. Restart running Claude Code sessions to pick them up. To remove them, run `.venv/bin/python install.py --uninstall`.
-
-Tell the hook where the broker is in `~/.config/psv-agent-remote/config.toml`. Every key is optional:
+Create or edit `~/.config/psv-agent-remote/config.toml`:
 
 ```toml
 broker_host = "192.168.1.20"
 broker_port = 1883
-wait_timeout_s = 120     # seconds to wait for the Vita before falling back to the on-screen dialog
-enabled = true
 ```
 
-Environment variables override the file: `PSV_REMOTE_HOST`, `PSV_REMOTE_PORT`, `PSV_REMOTE_TIMEOUT`, `PSV_REMOTE_ENABLED=0`. Hook errors never affect Claude Code; they are logged to `~/.cache/psv-agent-remote/hook.log`.
+**Install once per computer/user account, not once per session.** The installer
+backs up and updates `~/.claude/settings.json` for both Claude CLI and its VS Code
+extension. Restart existing Claude sessions once after installation. After that,
+Claude starts the hooks and reply listener automatically, including after a
+computer restart; there is no separate Claude bridge service to launch manually.
 
-### 3. Vita app
+Keep the checkout in place: installed hooks reference its Python and scripts.
+Rerun the installer if you move the checkout or update hook definitions. Remove
+hooks with `.venv/bin/python install.py --uninstall` from `hooks/`.
 
-Build `vita/build/psv_agent_remote.vpk` as described in [vita/README.md](vita/README.md). Then install it with VitaShell: press SELECT to start its FTP server, upload the VPK to `ux0:`, and open it in VitaShell to install.
+#### Codex in VS Code: install the extension
 
-On the Vita, press START → **Add broker** and enter the broker's address, for example `192.168.1.20` (port 1883 by default). Select it to connect; the top bar shows `LINK` once connected.
+Build the VSIX once from the repository:
+
+```bash
+cd vscode-extension
+npm ci
+npm run package
+```
+
+1. In VS Code, run **Extensions: Install from VSIX…** and select
+   `vscode-extension/dist/psv-agent-remote-0.1.0.vsix`.
+2. Run **PSV Agent Remote: Configure** and set **Broker Host** to your broker's
+   address. Alternatively, reuse the configuration file shown above.
+3. Open Codex and use it normally. The **PSV** status item shows the bridge service
+   state and managed session count; click it for connection controls or logs.
+
+The VSIX bundles the bridge and Python dependencies: no checkout or pip setup is
+needed on the machine installing it. Python 3.11+ must still be available. If it
+is not found, set **PSV Agent Remote: Python Path**.
+
+**The extension starts the Codex bridge service automatically.** Several VS Code
+windows share one service; closing the last window stops an extension-owned
+service after a short delay. After rebooting, reopening VS Code starts it again.
+You do not need to run `psv_codex.py watch` yourself for normal VS Code use.
+
+This integration currently supports local macOS/Linux agents. It uses a
+version-dependent frontend interface; compatible versions, settings and details
+are in the [extension guide](vscode-extension/README.md).
+
+#### Codex CLI: shared runtime required
+
+CLI use requires **two running services**: a shared **Codex App Server** and the
+**PSV bridge manager**. Connect the CLI to that App Server, then configure its
+socket once in the VS Code extension's **App Server Sockets** setting. The
+extension can then discover its sessions automatically.
+
+To use the CLI without VS Code, run the bridge manager yourself and restart it
+after a reboot. See the [standalone manager](docs/codex-integration.md#persistent-manager-no-per-session-setup)
+and [shared CLI setup](docs/codex-integration.md#cli-existing-shared-app-server-runtime)
+for the commands. A normally started CLI cannot be attached by starting another server afterward;
+launch the CLI through the shared server instead.
+
+### 3. Install and connect the Vita app
+
+Build `vita/build/psv_agent_remote.vpk` using the [Vita build guide](vita/README.md).
+Upload it through VitaShell's FTP server, then open the VPK in VitaShell to install.
+
+Open Agent Remote on the Vita, press **START → Add broker**, and enter your
+broker's LAN address, such as `192.168.1.20`. Select it; the top bar shows **LINK**
+once connected. The Vita and computer must use the same broker.
 
 ## Using it
 
 | Input | Action |
 |---|---|
 | L / R | Previous / next session |
-| SELECT | Session list (✕ open, □ remove an idle session) |
-| Left stick up/down, D-pad up/down, drag on either touch panel | Scroll |
+| SELECT | Session list: ✕ open, □ remove, △ view the highlighted session's capabilities |
+| Left stick up/down, D-pad up/down, vertical drag | Scroll or move through a list |
 | D-pad left/right, left stick left/right | Choose an option |
-| Right stick | Pan a wide table or code block (left/right), switch between them (up/down) |
-| Sideways drag on a table or code block (either panel) | Pan it |
-| Front touch tap | Press what you tap: tabs, options, list rows, buttons, settings |
-| ✕ | Confirm |
-| ○ | Back |
-| □ | Hide / show the decision sheet; with no decision, open / fold the reply drawer |
-| △ | Toggle sofa / desk mode |
-| START | Settings: brokers, sounds, front touch, screen dimming, exit |
+| Right stick | Pan wide tables/code; switch the table being panned |
+| Sideways drag on a table/code block | Pan horizontally |
+| Front touch tap | Press a tab, option, list row or button |
+| ✕ / ○ | Confirm / back |
+| □ | Hide/show a decision sheet, or open/fold the reply drawer |
+| △ | Toggle sofa/desk on the main screen; show capabilities in the session list |
+| START | Settings: brokers, sound, touch, dimming, exit |
 
-For safety, no option is preselected on a new request, and ✕ is ignored for half a second after a request appears. The rear touch panel only scrolls and pans, so holding the Vita never presses anything.
+A new request starts with no option selected and a half-second confirmation
+lockout. The rear panel scrolls/pans without pressing buttons. Any button closes
+the capability popup without also activating the page underneath.
 
-In the reply drawer, up/down move between rows and left/right between the buttons of a draft. A typed reply is not sent until you press **Send**; closing the keyboard keeps it as a draft, and □ folds the drawer to one line. If no listener answers within 10 seconds (old hooks, or a client without hook support), the Vita shows **Not delivered** and keeps your text. Front touch can be turned off in Settings.
+Typed replies remain drafts until **Send** is selected. A failed or unconfirmed
+reply shows **NOT CONFIRMED** and preserves typed text. Front touch can be disabled
+in Settings.
 
-The app's files live in `ux0:data/psv_agent_remote/`: `config.txt` holds the settings and broker list, and `psk.txt` holds the encryption key.
+The application pages, home icon and LiveArea use the independent `#DDD23B`
+palette. Conversations and capability popups use the corresponding Agent palette.
 
 ## Encrypted broker (TLS-PSK)
 
-On a network you share with others, use TLS with a pre-shared key between the Vita and the broker. Nobody without the key can connect, read sessions, or answer for you. An encrypted broker never falls back to plaintext. While one is selected, the Vita never switches to a plaintext broker on its own.
+On a network you share with others, use TLS with a pre-shared key between the Vita and the broker. An encrypted broker never falls back to plaintext. While one is selected, the Vita never switches to a plaintext broker on its own.
 
-The hook itself speaks plain MQTT, so in this setup it runs on the broker host and connects to `127.0.0.1`. Only the Vita connects over the network.
+The computer-side Python bridges use plain MQTT. For this setup, run the bridge and broker on the same computer and connect the bridge to `127.0.0.1`; only the Vita uses the network-facing TLS listener.
 
 1. **Generate a key** on any machine you own:
 
@@ -124,9 +216,9 @@ The hook itself speaks plain MQTT, so in this setup it runs on the broker host a
    sudo systemctl restart mosquitto
    ```
 
-   [tools/mosquitto-psk.conf](tools/mosquitto-psk.conf) keeps port 1883 on localhost for the hook and opens port 8883 with TLS-PSK on the network. Remove any other `listener` lines, such as the plaintext example above.
+   [tools/mosquitto-psk.conf](tools/mosquitto-psk.conf) keeps port 1883 on localhost for the Python bridge and opens port 8883 with TLS-PSK on the network. Remove any other `listener` lines, such as the plaintext example above.
 
-4. **Point the hook at localhost**: set `broker_host = "127.0.0.1"` in `config.toml`.
+4. **Point the computer bridge at localhost**: set `broker_host = "127.0.0.1"` in `config.toml`.
 
 5. **Check the broker** (needs `mosquitto-clients`):
 
@@ -140,28 +232,39 @@ The hook itself speaks plain MQTT, so in this setup it runs on the broker host a
 
 ## Testing without a Vita
 
-`tools/fake_psv.py` stands in for the Vita on the broker:
+`tools/fake_psv.py` can answer broker requests interactively:
 
 ```bash
-hooks/.venv/bin/python tools/fake_psv.py --host 192.168.1.20                # answer interactively (a/A/d/D)
-hooks/.venv/bin/python tools/fake_psv.py --host 192.168.1.20 --auto allow   # approve everything
-hooks/.venv/bin/python tools/fake_psv.py --host 192.168.1.20 --mode desk    # report desk mode
+hooks/.venv/bin/python tools/fake_psv.py --host 192.168.1.20
 ```
+
+Use `--mode desk` to simulate desk mode. `--auto allow` approves requests without
+prompting; use it only with a dedicated test session and test broker.
 
 ## Development
 
 ```bash
-cd hooks && .venv/bin/pytest -q      # hook tests
-make -C vita/tests                   # Vita app logic, built for the host with ASan/UBSan
+hooks/.venv/bin/python -m pip install pytest
+hooks/.venv/bin/python -m pytest -q hooks/tests
+make -C vita/tests
+cd vscode-extension && npm ci && npm test
 ```
-
-Repository layout:
 
 | Path | Contents |
 |---|---|
-| `hooks/` | Claude Code hook (`psv_hook.py`), its package `psv_remote/`, the installer, and tests |
-| `vita/` | Vita app sources, host tests, assets, and LiveArea art |
-| `tools/` | Pairing and broker tools, the fake Vita, and font/artwork generators |
-| `docs/` | UI mockups (`mockup/index.html` for the main screens, `mockup/reply.html` for the reply drawer) and the Vita hacking guide (in Chinese) |
+| `hooks/` | Claude hooks/installer, shared Python code, Codex bridge/manager and tests |
+| `vscode-extension/` | Codex launcher/status extension and VSIX packaging |
+| `vita/` | Vita C app, host tests, fonts, icons and LiveArea artwork |
+| `tools/` | Broker, pairing, test-client and asset-generation tools |
+| `docs/` | Setup guides, Codex technical notes and HTML mockups |
 
-The fonts are subsets of Noto Sans SC, JetBrains Mono and Space Grotesk, under the SIL Open Font License (`vita/assets/OFL-*.txt`). The vendored cJSON and Eclipse Paho MQTTPacket libraries keep their own licenses in `vita/third_party/`.
+Local probes, runtime captures, build outputs, generated keys and user
+configuration do not belong in Git. The repository's ignore rules cover common
+cases; inspect `git status` before publishing. VSIX packaging copies production
+Python files and pinned dependency wheels, excluding local configuration and
+research artifacts.
+
+Fonts are subsets of Noto Sans SC, JetBrains Mono and Space Grotesk, under the
+SIL Open Font License (`vita/assets/OFL-*.txt`). Vendored cJSON and Eclipse Paho
+MQTTPacket retain their licenses in `vita/third_party/`. The VSIX includes dependency
+license metadata inside its bundled wheels.

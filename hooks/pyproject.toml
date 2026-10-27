@@ -6,6 +6,7 @@ dependencies = ["paho-mqtt>=2.0"]
 
 [project.optional-dependencies]
 test = ["pytest"]
+codex = ["websockets>=14"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

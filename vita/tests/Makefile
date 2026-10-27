@@ -31,6 +31,9 @@ mqttpacket.a: $(MQTT_VENDOR)
 test_%: test_%.c $(SRCS) $(VENDOR_OBJS) test.h
 	$(CC) $(CFLAGS) -o $@ $< $(SRCS) $(VENDOR_OBJS) $(LDFLAGS)
 
+test_ui: test_ui.c ../src/ui.c $(SRCS) $(VENDOR_OBJS) test.h stubs/vita2d.h
+	$(CC) $(CFLAGS) -Wno-unused-parameter -Istubs -o $@ test_ui.c ../src/ui.c $(SRCS) $(VENDOR_OBJS) $(LDFLAGS) -lm
+
 test_mqtt: test_mqtt.c $(MQTT_SRCS) mqttpacket.a test.h
 	$(CC) $(CFLAGS) -o $@ $< $(MQTT_SRCS) mqttpacket.a $(LDFLAGS)
 

@@ -1,4 +1,4 @@
-/* Integration test against a real broker: MQTT_HOST (default 192.168.2.222). */
+/* Integration test against a real broker: MQTT_HOST (default 192.168.1.20). */
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +18,7 @@ static void on_msg(const char *topic, const uint8_t *payload, size_t len, void *
 }
 
 int main(void) {
-    const char *host = getenv("MQTT_HOST") ? getenv("MQTT_HOST") : "192.168.2.222";
+    const char *host = getenv("MQTT_HOST") ? getenv("MQTT_HOST") : "192.168.1.20";
     srand((unsigned)time(NULL));
     char base[64];
     snprintf(base, sizeof base, "claude/test/smoke%06d", rand() % 1000000);

@@ -8,6 +8,7 @@ const char *const REPLY_PRESET_VERIFY = "Verify your work further before you fin
 
 void reply_init(Reply *r) {
     memset(r, 0, sizeof *r);
+    r->allow_text = r->allow_stop = true;
     r->line = -1;
 }
 
@@ -30,23 +31,23 @@ ReplyLayout reply_layout(const Reply *r, bool idle, bool working) {
     ReplyLayout l;
     memset(&l, 0, sizeof l);
     if (!idle && !working) return l;
-    if (r->draft[0]) {
+    if (r->allow_text && r->draft[0]) {
         l.box = RB_DRAFT;
         l.box_items[l.n_box++] = RR_SEND;
         l.box_items[l.n_box++] = RR_EDIT;
         l.box_items[l.n_box++] = RR_DISCARD;
-    } else if (reply_in_flight(r) && r->sent_typed) {
+    } else if (r->allow_text && reply_in_flight(r) && r->sent_typed) {
         l.box = RB_QUEUED;
         l.box_items[l.n_box++] = RR_EDIT;
         l.box_items[l.n_box++] = RR_DISCARD;
     }
-    if (idle) {
+    if (idle && r->allow_text) {
         l.rows[l.n_rows++] = RR_CONTINUE;
         l.rows[l.n_rows++] = RR_VERIFY;
-    } else {
+    } else if (working && r->allow_stop) {
         l.rows[l.n_rows++] = RR_MATTA;
     }
-    if (l.box == RB_NONE) l.rows[l.n_rows++] = RR_TYPE;
+    if (r->allow_text && l.box == RB_NONE) l.rows[l.n_rows++] = RR_TYPE;
     return l;
 }
 
@@ -180,6 +181,10 @@ ReplyAct reply_ime_done(Reply *r, const char *text, bool entered, const char *ne
     bool editing_sent = r->editing_sent;
     r->editing_sent = false;
     if (!entered) return none;
+    if (!r->allow_text) {
+        if (!r->draft[0]) snprintf(r->draft, sizeof r->draft, "%s", text);
+        return none;
+    }
     if (editing_sent) {
         if (!text[0] || !reply_in_flight(r)) return none;
         return send(r, RK_TEXT, text, true, new_id, now); /* the listener keeps only the newest */
@@ -190,6 +195,9 @@ ReplyAct reply_ime_done(Reply *r, const char *text, bool entered, const char *ne
 
 void reply_on_state(Reply *r, const char *id, const char *state, uint64_t now) {
     if (!r->id[0] || strcmp(id, r->id)) return;
+    if (strcmp(state, "received") && strcmp(state, "queued") && strcmp(state, "delivered") &&
+        strcmp(state, "stopping") && strcmp(state, "stopped") && strcmp(state, "ignored") &&
+        strcmp(state, "cancelled") && strcmp(state, "failed")) return;
     r->acked = true;
     if (!strcmp(state, "queued")) set_status(r, RS_QUEUED, now);
     else if (!strcmp(state, "delivered")) set_status(r, RS_DELIVERED, now);
@@ -197,6 +205,10 @@ void reply_on_state(Reply *r, const char *id, const char *state, uint64_t now) {
     else if (!strcmp(state, "stopped")) set_status(r, RS_STOPPED, now);
     else if (!strcmp(state, "ignored")) set_status(r, RS_IGNORED, now);
     else if (!strcmp(state, "cancelled")) set_status(r, RS_CANCELLED, now);
+    else if (!strcmp(state, "failed")) {
+        set_status(r, RS_FAILED, now);
+        if (r->sent_typed && !r->draft[0]) snprintf(r->draft, sizeof r->draft, "%s", r->sent);
+    }
 }
 
 ReplyAct reply_tick(Reply *r, uint64_t now) {

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="500" viewBox="0 0 840 500">
+  <defs>
+    <radialGradient id="glow"><stop stop-color="#DDD23B" stop-opacity=".10"/><stop offset="1" stop-color="#DDD23B" stop-opacity="0"/></radialGradient>
+    <pattern id="scan" width="1" height="3" patternUnits="userSpaceOnUse"><path d="M0 .5H840" stroke="#e9ebd9" stroke-opacity=".025"/></pattern>
+    <clipPath id="floor"><path d="M0 330h840v170H0z"/></clipPath>
+    <clipPath id="sun"><path d="M325 330a95 95 0 0 1 190 0z"/></clipPath>
+  </defs>
+  <rect width="840" height="500" fill="#15170f"/>
+  <ellipse cx="420" cy="300" rx="360" ry="250" fill="url(#glow)"/>
+  <text x="420" y="112" text-anchor="middle" fill="#DDD23B" font-family="monospace" font-weight="500" font-size="44" letter-spacing="5">AGENT//REMOTE</text>
+  <text x="420" y="157" text-anchor="middle" fill="#c6c9aa" font-family="sans-serif" font-size="20">Approve your coding agents from the couch.</text>
+  <g fill="none" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="m360 182 12 21h-24z" stroke="#3fd0a6"/>
+    <circle cx="400" cy="194" r="11" stroke="#ff6b6b"/>
+    <path d="m429 183 21 21m0-21-21 21" stroke="#7aa7ff"/>
+    <rect x="469" y="183" width="22" height="22" rx="1" stroke="#e48bd2"/>
+  </g>
+  <path d="M325 330a95 95 0 0 1 190 0z" fill="#484e24"/>
+  <g clip-path="url(#sun)" stroke="#15170f"><path d="M320 292h200" stroke-width="3"/><path d="M320 303h200" stroke-width="4"/><path d="M320 315h200" stroke-width="5"/><path d="M320 328h200" stroke-width="6"/></g>
+  <g clip-path="url(#floor)" stroke="#343b22" stroke-width="1" fill="none">
+    <path d="M336 330-840 500M342 330-750 500M348 330-660 500M354 330-570 500M360 330-480 500M366 330-390 500M372 330-300 500M378 330-210 500M384 330-120 500M390 330-30 500M396 330 60 500M402 330 150 500M408 330 240 500M414 330 330 500M420 330v170M426 330 510 500M432 330 600 500M438 330 690 500M444 330 780 500M450 330 870 500M456 330 960 500M462 330 1050 500M468 330 1140 500M474 330 1230 500M480 330 1320 500M486 330 1410 500M492 330 1500 500M498 330 1590 500M504 330 1680 500"/>
+    <path d="M0 330h840M0 334h840M0 340h840M0 348h840M0 360h840M0 377h840M0 401h840M0 435h840M0 482h840"/>
+  </g>
+  <rect width="840" height="500" fill="url(#scan)"/>
+</svg>

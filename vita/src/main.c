@@ -177,7 +177,7 @@ static void run_reply_act(App *app, const Session *s, const ReplyAct *a) {
         publish_reply(s->sid, a);
     } else if (a->kind == RA_OPEN_IME) {
         snprintf(app->ime_sid, sizeof app->ime_sid, "%s", s->sid);
-        app->ime = start_ime(IME_REPLY, "Reply to Claude", a->text) ? IME_REPLY : IME_NONE;
+        app->ime = start_ime(IME_REPLY, "Reply to agent", a->text) ? IME_REPLY : IME_NONE;
     }
 }
 
@@ -252,7 +252,7 @@ static void send_outcome(App *app, const Outcome *o, uint64_t now) {
     case OUT_NEED_NOTE:
         snprintf(app->ime_sid, sizeof app->ime_sid, "%s", o->sid);
         snprintf(app->ime_rid, sizeof app->ime_rid, "%s", o->rid);
-        app->ime = start_ime(IME_NOTE, "Note for Claude", "") ? IME_NOTE : IME_NONE;
+        app->ime = start_ime(IME_NOTE, "Note for the agent", "") ? IME_NOTE : IME_NONE;
         break;
     case OUT_NEED_OTHER:
         snprintf(app->ime_sid, sizeof app->ime_sid, "%s", o->sid);
@@ -311,7 +311,7 @@ static void toggle_mode(App *app, uint64_t now, bool toast) {
     net_set_mode(app->cfg.mode);
     config_save(&app->cfg, CONFIG_PATH);
     if (toast)
-        show_toast(app, app->cfg.mode == MODE_DESK ? "Desk mode · approvals stay on your Mac"
+        show_toast(app, app->cfg.mode == MODE_DESK ? "Desk mode · approvals stay on your computer"
                                                    : "Sofa mode · approvals come to this Vita", now);
 }
 
@@ -393,12 +393,11 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
 
 static void handle_list_actions(App *app, const Actions *in, uint64_t now) {
     Actions tap = *in, *a = &tap;
-    if (a->tap) { /* a tap picks the row or dialog button it lands on, then confirms it */
+    if (a->tap && !app->list.tooltip && !app->list.swallow) {
         Hit h = ui_hit_test(a->tap_x, a->tap_y);
         if (h.kind == HIT_LIST_ROW && !app->list.confirming) app->list.cursor = h.index, a->confirm = true;
         else if (h.kind == HIT_DIALOG && app->list.confirming) app->list.confirm_sel = h.index, a->confirm = true;
     }
-    if (a->toggle_mode) toggle_mode(app, now, true);
     char sid[64] = "";
     if (list_handle(&app->list, &app->model, a, now, sid) == LIST_REMOVED) {
         char topic[160];
@@ -522,14 +521,17 @@ int main(void) {
             char text[OTHER_BYTES * 2];
             bool entered;
             if (poll_ime(text, sizeof text, &entered)) finish_ime(&app, text, entered, now);
-        } else if (any_input(&frame) || actions_any(&a)) {
+        } else {
+            bool active = any_input(&frame) || actions_any(&a);
             bool was_dimmed = app.view.dimmed;
-            if (was_dimmed && frame.front_down) app.wake_touch = true;
-            wake(&app, now);
+            if (active) {
+                if (was_dimmed && frame.front_down) app.wake_touch = true;
+                wake(&app, now);
+            }
             if (!was_dimmed) {
                 if (app.list.open) handle_list_actions(&app, &a, now);
-                else if (app.settings.open) quit = handle_settings_actions(&app, &a, now);
-                else handle_main_actions(&app, &a, now);
+                else if (active && app.settings.open) quit = handle_settings_actions(&app, &a, now);
+                else if (active) handle_main_actions(&app, &a, now);
             }
         }
 
@@ -566,7 +568,7 @@ int main(void) {
             Mode want = ch == POWER_TO_DESK ? MODE_DESK : MODE_SOFA;
             if (ch != POWER_NO_CHANGE && app.cfg.mode != want) {
                 toggle_mode(&app, now, false);
-                show_toast(&app, want == MODE_DESK ? "Plugged in · desk mode, approvals stay on your Mac"
+                show_toast(&app, want == MODE_DESK ? "Plugged in · desk mode, approvals stay on your computer"
                                                    : "Unplugged · sofa mode, approvals come to this Vita", now);
             }
         }
@@ -587,6 +589,8 @@ int main(void) {
     }
 
     net_stop();
+    vita2d_wait_rendering_done();
+    ui_fini();
     vita2d_fini();
     sceKernelExitProcess(0);
     return 0;

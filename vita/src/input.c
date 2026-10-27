@@ -102,6 +102,9 @@ Actions input_map(InputState *s, const InputFrame *f) {
 
     /* Right stick: pan the focused table sideways, switch tables up/down. */
     int rx = (int)f->rx - 128, ry = (int)f->ry - 128;
+    a.held = f->buttons || (s->front_enabled && f->front_down) || f->rear_down ||
+             abs(lx) > LSTICK_DEADZONE || abs(ly) > LSTICK_DEADZONE ||
+             abs(rx) > RSTICK_DEADZONE || abs(ry) > RSTICK_DEADZONE;
     if (abs(rx) > RSTICK_DEADZONE) {
         int px = (abs(rx) - RSTICK_DEADZONE) * PAN_MAX_PX / (127 - RSTICK_DEADZONE);
         if (px > PAN_MAX_PX) px = PAN_MAX_PX;

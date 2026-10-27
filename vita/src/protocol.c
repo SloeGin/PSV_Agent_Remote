@@ -72,6 +72,20 @@ bool protocol_parse_status(const char *json, size_t len, StatusMsg *out) {
     ok = ok && get_str(root, "project", out->project, sizeof out->project, false);
     ok = ok && get_str(root, "cwd", out->cwd, sizeof out->cwd, false);
     ok = ok && get_str(root, "summary", out->summary, sizeof out->summary, false);
+    const cJSON *agent = cJSON_GetObjectItemCaseSensitive(root, "agent");
+    out->agent = !agent ? AGENT_CLAUDE : AGENT_UNKNOWN;
+    if (cJSON_IsString(agent)) {
+        if (!strcmp(agent->valuestring, "claude")) out->agent = AGENT_CLAUDE;
+        else if (!strcmp(agent->valuestring, "codex")) out->agent = AGENT_CODEX;
+    } else if (agent) ok = false;
+    const cJSON *caps = cJSON_GetObjectItemCaseSensitive(root, "capabilities");
+    out->capabilities_present = caps != NULL;
+    static const char *const keys[CAP_COUNT] = {"approval", "questions", "reply", "stop"};
+    for (int i = 0; i < CAP_COUNT; i++) {
+        const cJSON *cap = cJSON_GetObjectItemCaseSensitive(caps, keys[i]);
+        out->capabilities[i] = cJSON_IsTrue(cap) ? CAP_SUPPORTED :
+                               cJSON_IsFalse(cap) ? CAP_UNSUPPORTED : CAP_UNKNOWN;
+    }
     cJSON_Delete(root);
     return ok;
 }
@@ -95,6 +109,7 @@ static bool parse_questions(const cJSON *arr, Request *out) {
             !get_str(q, "header", dst->header, sizeof dst->header, false))
             return false;
         dst->multi = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(q, "multi"));
+        dst->no_other = cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(q, "allow_other"));
         const cJSON *o;
         cJSON_ArrayForEach(o, cJSON_GetObjectItemCaseSensitive(q, "options")) {
             if (dst->n_opts >= MAX_QOPTS) break;
@@ -182,7 +197,7 @@ bool protocol_parse_turn(const char *json, size_t len, TurnItem **items, int *n)
         if (!get_str(it, "k", kind, sizeof kind, true) || !cJSON_IsString(t)) continue;
         TurnItem *d = &out[k];
         if (!strcmp(kind, "you")) d->kind = TURN_YOU;
-        else if (!strcmp(kind, "claude")) d->kind = TURN_CLAUDE;
+        else if (!strcmp(kind, "claude") || !strcmp(kind, "assistant")) d->kind = TURN_ASSISTANT;
         else if (!strcmp(kind, "tool")) d->kind = TURN_TOOL;
         else if (!strcmp(kind, "note")) d->kind = TURN_NOTE;
         else continue;

@@ -10,6 +10,9 @@
  * (a confirm dialog that defaults to Keep), ○ or SELECT closes the list. */
 typedef struct {
     bool open;
+    bool tooltip;
+    bool swallow; /* opening/dismissing input must be released before acting again */
+    char tooltip_sid[64];
     int cursor;
     bool confirming;
     int confirm_sel; /* 0 = Keep, 1 = Remove */

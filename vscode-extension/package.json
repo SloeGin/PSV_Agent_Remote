@@ -1,0 +1,48 @@
+{
+  "name": "psv-agent-remote",
+  "displayName": "PSV Agent Remote",
+  "description": "Connect local Codex sessions to your PlayStation Vita remote.",
+  "version": "0.1.0",
+  "publisher": "psv-agent-remote",
+  "license": "UNLICENSED",
+  "engines": { "vscode": "^1.96.0" },
+  "categories": ["Other"],
+  "extensionKind": ["ui"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./src/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": false },
+    "virtualWorkspaces": { "supported": false }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "prepare-runtime": "python3 scripts/prepare_runtime.py",
+    "package": "npm run prepare-runtime && vsce package --no-dependencies --allow-missing-repository --skip-license --out dist/psv-agent-remote-0.1.0.vsix"
+  },
+  "devDependencies": { "@vscode/vsce": "^3.6.2" },
+  "contributes": {
+    "commands": [
+      { "command": "psvAgentRemote.start", "title": "PSV Agent Remote: Connect" },
+      { "command": "psvAgentRemote.stop", "title": "PSV Agent Remote: Disconnect This Window" },
+      { "command": "psvAgentRemote.restart", "title": "PSV Agent Remote: Reconnect" },
+      { "command": "psvAgentRemote.logs", "title": "PSV Agent Remote: Show Logs" },
+      { "command": "psvAgentRemote.configure", "title": "PSV Agent Remote: Configure" },
+      { "command": "psvAgentRemote.menu", "title": "PSV Agent Remote: Connection Menu" }
+    ],
+    "configuration": {
+      "title": "PSV Agent Remote",
+      "properties": {
+        "psvAgentRemote.autoStart": { "type": "boolean", "default": true, "scope": "application", "description": "Connect local Codex sessions automatically when VS Code starts." },
+        "psvAgentRemote.pythonPath": { "type": "string", "default": "", "scope": "machine", "description": "Python 3.11+ executable path. Empty searches standard local installations. No pip install is needed." },
+        "psvAgentRemote.experimentalIpc": { "type": "boolean", "default": true, "scope": "application", "description": "Discover local VS Code Codex sessions through the version-dependent frontend IPC interface." },
+        "psvAgentRemote.brokerHost": { "type": "string", "default": "", "scope": "machine", "description": "MQTT broker address. Empty uses the existing PSV Agent Remote configuration." },
+        "psvAgentRemote.brokerPort": { "type": "number", "default": 1883, "minimum": 1, "maximum": 65535, "scope": "machine", "description": "MQTT broker port, used when brokerHost is set." },
+        "psvAgentRemote.hostId": { "type": "string", "default": "", "scope": "machine", "description": "Stable host identity. Empty uses the local hostname." },
+        "psvAgentRemote.ipcSocket": { "type": "string", "default": "", "scope": "machine", "description": "Optional local Codex frontend Unix socket path." },
+        "psvAgentRemote.stateDatabase": { "type": "string", "default": "", "scope": "machine", "description": "Optional read-only Codex thread index path." },
+        "psvAgentRemote.appServerSockets": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [], "scope": "machine", "description": "Existing shared CLI App Server Unix socket paths. Configure once per runtime, not per session." },
+        "psvAgentRemote.maxSessions": { "type": "number", "default": 16, "minimum": 1, "maximum": 16, "scope": "application", "description": "Maximum number of managed Codex sessions." }
+      }
+    }
+  }
+}
