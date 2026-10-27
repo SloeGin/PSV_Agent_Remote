@@ -21,6 +21,8 @@ class Bus(Protocol):
     def subscribe(self, topic: str) -> None: ...
     def publish(self, topic: str, payload: bytes, retain: bool = False, qos: int = 0) -> None: ...
     def wait_for(self, topic: str, timeout_s: float) -> bytes | None: ...
+    # Next message on any subscribed topic; raises BusError once disconnected.
+    def next_message(self, timeout_s: float) -> tuple[str, bytes] | None: ...
     def close(self) -> None: ...
 
 
@@ -50,6 +52,7 @@ class PahoBus:
     def __init__(self, cfg: Config):
         deadline = time.monotonic() + cfg.connect_timeout_s
         self._queues: dict[str, queue.Queue] = {}
+        self._all: queue.Queue = queue.Queue()
         self._lock = threading.Lock()
         self._connected = threading.Event()
         self._disconnected = threading.Event()
@@ -83,6 +86,7 @@ class PahoBus:
 
     def _on_message(self, client, userdata, msg):
         self._queue(msg.topic).put(msg.payload)
+        self._all.put((msg.topic, msg.payload))
 
     def subscribe(self, topic: str) -> None:
         self._queue(topic)
@@ -100,6 +104,18 @@ class PahoBus:
             except queue.Empty:
                 pass
         return None
+
+    def next_message(self, timeout_s: float) -> tuple[str, bytes] | None:
+        deadline = time.monotonic() + timeout_s
+        while not self._disconnected.is_set():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            try:
+                return self._all.get(timeout=min(0.2, remaining))
+            except queue.Empty:
+                pass
+        raise BusError("disconnected")
 
     def read_retained(self, topic: str, wait_s: float) -> bytes | None:
         self.subscribe(topic)

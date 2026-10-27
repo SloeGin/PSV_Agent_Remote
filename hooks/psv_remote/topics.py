@@ -18,3 +18,11 @@ def response(sid: str, rid: str) -> str:
 
 def turn(sid: str) -> str:
     return f"claude/session/{sid}/turn"
+
+
+def reply(sid: str) -> str:
+    return f"claude/session/{sid}/reply"
+
+
+def reply_state(sid: str) -> str:
+    return f"claude/session/{sid}/reply_state"

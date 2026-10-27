@@ -35,3 +35,31 @@ def test_dns_stall_is_bounded(monkeypatch):
     with pytest.raises(BusError):
         PahoBus(Config(broker_host="stall.example", connect_timeout_s=0.5))
     assert time.monotonic() - t0 < 1.5
+
+
+def _bare_bus():
+    bus = object.__new__(PahoBus)
+    bus._queues, bus._lock = {}, threading.Lock()
+    bus._all = queue.Queue()
+    bus._disconnected = threading.Event()
+    return bus
+
+
+def test_next_message_returns_any_topic():
+    bus = _bare_bus()
+    bus._on_message(None, None, type("M", (), {"topic": "a/b", "payload": b"x"})())
+    assert bus.next_message(1.0) == ("a/b", b"x")
+    assert bus.next_message(0.05) is None
+
+
+def test_next_message_raises_after_disconnect():
+    bus = _bare_bus()
+    bus._disconnected.set()
+    with pytest.raises(BusError):
+        bus.next_message(1.0)
+
+
+def test_reply_topics():
+    from psv_remote import topics
+    assert topics.reply("s1") == "claude/session/s1/reply"
+    assert topics.reply_state("s1") == "claude/session/s1/reply_state"
