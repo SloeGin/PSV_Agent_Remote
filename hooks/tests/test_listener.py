@@ -213,3 +213,44 @@ def test_unreachable_broker_waits_until_deadline(tmp_path):
 
     assert run(factory, SID, cfg_for(tmp_path), 1, deadline=100.0, clock=lambda: t[0], sleep=sleep) is None
     assert t[0] >= 100.0
+
+
+# ---- final review fixes ----
+
+class FlakyBus(FakeBus):
+    def publish(self, topic, payload, retain=False, qos=0):
+        raise BusError("connection lost")
+
+
+def test_delivers_even_if_reporting_fails(tmp_path):
+    lis = Listener(FlakyBus(), SID, tmp_path)
+    lis.on_status(st("idle"))
+    with pytest.raises(BusError):  # the "received" ack itself fails: nothing is taken
+        lis.on_reply(rp("a", "text", "x"))
+    lis2 = Listener(FlakyBus(), SID, tmp_path)
+    lis2.working = True
+    lis2.queued = {"id": "b", "kind": "text", "text": "held"}
+    assert lis2.on_status(st("idle")) == FRAME + "held"  # delivery beats reporting
+
+
+def test_idle_clears_late_stop_flag(bus, lis, tmp_path):
+    lis.on_status(st("running"))
+    lis.on_reply(put_reply(bus, rp("s", "stop")))
+    assert lis.on_status(st("idle")) is None  # the turn ended before another tool ran
+    assert not stop_flag(tmp_path, SID).exists()
+    assert states(bus)[-1] == "stopped"
+
+
+def test_retired_listener_does_not_deliver(tmp_path):
+    class TakeoverBus(FakeBus):
+        def next_message(self, timeout_s):
+            got = super().next_message(timeout_s)
+            if got and got[0] == REPLY:  # a newer listener took over while this one was waiting
+                pid_file(tmp_path).write_text("999")
+            return got
+
+    bus = TakeoverBus()
+    bus.retained[STATUS] = st("idle")
+    bus.retained[REPLY] = rp("a", "text", "x")
+    assert run(lambda: bus, SID, cfg_for(tmp_path), 4242, deadline=1e9, sleep=lambda s: None) is None
+    assert states(bus) == []

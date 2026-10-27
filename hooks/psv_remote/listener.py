@@ -7,6 +7,7 @@ a stop reply leaves a flag file that the PostToolUse hook turns into a hard stop
 """
 
 import json
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -70,7 +71,10 @@ class Listener:
     def _mark_seen(self, rid: str) -> None:
         ids = [i for i in self._seen() if i != rid][-(SEEN_MAX - 1):] + [rid]
         self._dir.mkdir(parents=True, exist_ok=True)
-        _seen_file(self._dir, self._sid).write_text("\n".join(ids) + "\n")
+        path = _seen_file(self._dir, self._sid)
+        tmp = path.with_name(f"{path.name}.{os.getpid()}")
+        tmp.write_text("\n".join(ids) + "\n")
+        os.replace(tmp, path)  # another listener never reads a half-written list
 
     def _state(self, rid: str, state: str) -> None:
         payload = json.dumps({"id": rid, "state": state}).encode()
@@ -82,10 +86,13 @@ class Listener:
     def _deliver(self, msg: dict) -> str:
         self.queued = None
         self._mark_seen(msg["id"])
-        self._state(msg["id"], "delivered")
-        self._clear_reply()
-        turn = {"items": [{"k": "you", "t": msg["text"][:2000]}], "ts": int(time.time())}
-        self.bus.publish(topics.turn(self._sid), json.dumps(turn, ensure_ascii=False).encode(), retain=True)
+        try:  # delivering matters more than reporting it
+            self._state(msg["id"], "delivered")
+            self._clear_reply()
+            turn = {"items": [{"k": "you", "t": msg["text"][:2000]}], "ts": int(time.time())}
+            self.bus.publish(topics.turn(self._sid), json.dumps(turn, ensure_ascii=False).encode(), retain=True)
+        except BusError:
+            pass
         return FRAME + msg["text"]
 
     # ---- events ----
@@ -101,6 +108,14 @@ class Listener:
         if state not in ("idle", "running", "waiting"):
             return None
         self.working = state != "idle"
+        if not self.working:
+            flag = stop_flag(self._dir, self._sid)
+            try:  # 待った! came after the last tool: the turn ended anyway
+                rid = flag.read_text().strip()
+                flag.unlink()
+                self._state(rid, "stopped")
+            except FileNotFoundError:
+                pass
         if not self.working and self.queued:
             return self._deliver(self.queued)
         return None
@@ -172,6 +187,8 @@ def run(bus_factory: Callable[[], Bus], sid: str, cfg: Config, pid: int, deadlin
                 got = bus.next_message(1.0)
                 if got is None:
                     continue
+                if pid_file(state_dir, sid).read_text().strip() != str(pid):
+                    return None  # replaced while waiting: the newer listener handles it
                 topic, payload = got
                 text = lis.on_status(payload) if topic == topics.status(sid) else lis.on_reply(payload)
                 if text is not None:

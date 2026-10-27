@@ -336,7 +336,7 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
         if (decision) model_toggle_sheet(m, now);
         else if (s) reply_square(&s->reply, idle, working, now);
     }
-    if (s && !decision && s->reply.drawer == RD_OPEN) {
+    if (s && !decision && (idle || working) && s->reply.drawer == RD_OPEN) {
         Reply *rp = &s->reply;
         ReplyLayout l = reply_layout(rp, idle, working);
         reply_move(rp, &l, actions_cursor_lines(a), a->sel_dir);
@@ -538,7 +538,8 @@ int main(void) {
         model_tick(&app.model, now);
         for (int i = 0; i < app.model.n; i++) {
             Session *s = &app.model.s[i];
-            reply_sync(&s->reply, s->n_reqs > 0, now);
+            /* A decision, or a state with no drawer (unknown), folds an open drawer away. */
+            reply_sync(&s->reply, s->n_reqs > 0 || !(model_reply_idle(s) || model_reply_working(s)), now);
             ReplyAct t = reply_tick(&s->reply, now);
             if (t.kind == RA_WITHDRAW) publish_reply(s->sid, &t);
         }

@@ -32,6 +32,7 @@ Claude Code ──hooks──► psv_hook.py ──MQTT──► broker (Mosquit
 - **A PS Vita running custom firmware** (HENkaku/Ensō) with VitaShell. A step-by-step guide (in Chinese) is in [docs/vita-hacking.md](docs/vita-hacking.md); the source it follows is [vita.hacks.guide](https://vita.hacks.guide).
 - **An MQTT broker** on your local network. Both the Vita and the machine running the agent must reach it.
 - **Python 3.11+** on the machine running Claude Code.
+- **Claude Code with `asyncRewake` hook support** for replies from the Vita (tested with 2.1.311). An older client that ignores `asyncRewake` would run the reply listener as an ordinary hook and stall each prompt; on such a version, remove the `psv_listen.py` entries from `~/.claude/settings.json`.
 - **VitaSDK** to build the app (see [vita/README.md](vita/README.md)).
 
 ## Setup

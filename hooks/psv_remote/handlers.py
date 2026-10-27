@@ -176,7 +176,8 @@ def _status_event(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) ->
     name = event["hook_event_name"]
     sid = event["session_id"]
     if name == "SessionStart":
-        _publish_status(bus, event, env, "idle")
+        if event.get("source") != "compact":  # a compaction can happen mid-turn
+            _publish_status(bus, event, env, "idle")
     elif name == "UserPromptSubmit":
         _publish_status(bus, event, env, "running")
         prompt = event.get("prompt")
@@ -194,9 +195,6 @@ def _status_event(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) ->
         if items:
             _publish_turn(bus, event, items)
         _publish_status(bus, event, env, "idle", _summary(event.get("last_assistant_message") or ""))
-        rid = _take_stop_flag(cfg, sid)  # 待った! came after the last tool: the turn ended anyway
-        if rid is not None:
-            _publish_stopped(bus, sid, rid)
     elif name == "Notification":
         _publish_status(bus, event, env, "idle")
     elif name == "SessionEnd":
@@ -223,8 +221,12 @@ def handle_event(event: dict, bus_factory: Callable[[], Bus], cfg: Config,
     if not cfg.enabled or not event.get("session_id") or not _wants_bus(event):
         return None
     intro = None
-    if name in ("SessionStart", "UserPromptSubmit"):
+    stopped = None
+    compact = name == "SessionStart" and event.get("source") == "compact"
+    if name in ("SessionStart", "UserPromptSubmit") and not compact:
         _take_stop_flag(cfg, event["session_id"])  # a new turn: a leftover 待った! must not kill it
+    if name == "Stop":
+        stopped = _take_stop_flag(cfg, event["session_id"])  # 待った! after the last tool: the turn ended anyway
     if name == "SessionStart":
         intro = {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": INTRO}}
     if name == "PostToolUse":
@@ -241,6 +243,8 @@ def handle_event(event: dict, bus_factory: Callable[[], Bus], cfg: Config,
         if name == "PreToolUse":
             return _question(event, bus, cfg, env)
         _status_event(event, bus, cfg, env)
+        if stopped is not None:
+            _publish_stopped(bus, event["session_id"], stopped)
         return intro
     except BusError:
         return intro

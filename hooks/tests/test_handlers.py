@@ -349,3 +349,17 @@ def test_prompt_strips_frame(bus, cfg):
     handle_event(ev_named("UserPromptSubmit", prompt=FRAME + "Continue."), lambda: bus, cfg, {})
     turn = json.loads(bus.retained["claude/session/s1/turn"])
     assert turn["items"] == [{"k": "you", "t": "Continue."}]
+
+
+def test_compact_session_start_keeps_turn_state(bus, cfg):
+    stop_flag(cfg.state_dir, "s1").write_text("s9")
+    out = handle_event(ev_named("SessionStart", source="compact"), lambda: bus, cfg, {})
+    assert out["hookSpecificOutput"]["additionalContext"] == INTRO
+    assert STATUS not in bus.retained  # mid-turn: don't report idle
+    assert stop_flag(cfg.state_dir, "s1").exists()  # a pending 待った! still applies
+
+
+def test_stop_handler_clears_flag_offline(cfg):
+    stop_flag(cfg.state_dir, "s1").write_text("s9")
+    handle_event(ev_named("Stop", last_assistant_message="done"), _failing, cfg, {})
+    assert not stop_flag(cfg.state_dir, "s1").exists()
