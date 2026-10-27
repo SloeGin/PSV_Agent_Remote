@@ -13,6 +13,9 @@ import time
 from pathlib import Path
 
 MARKER = "psv_hook.py"
+LISTENER = "psv_listen.py"  # background listener for replies from the PSV
+LISTEN_EVENTS = ("SessionStart", "UserPromptSubmit")
+LISTEN_TIMEOUT_S = 43200
 EVENTS = ("SessionStart", "UserPromptSubmit", "PermissionRequest", "PreToolUse", "PostToolUse",
           "Stop", "Notification", "SessionEnd")
 MATCHERS = {"Notification": "idle_prompt", "PreToolUse": "AskUserQuestion"}
@@ -39,7 +42,8 @@ def _strip(settings: dict) -> None:
     for event in list(hooks):
         kept = []
         for group in hooks[event]:
-            inner = [h for h in group.get("hooks", []) if MARKER not in h.get("command", "")]
+            inner = [h for h in group.get("hooks", [])
+                     if MARKER not in h.get("command", "") and LISTENER not in h.get("command", "")]
             if inner:
                 kept.append({**group, "hooks": inner})
         if kept:
@@ -63,11 +67,12 @@ def install(settings_path: Path, python: str, hook: str, wait_timeout_s: int = 1
     _strip(settings)
     hooks = settings.setdefault("hooks", {})
     command = f"{shlex.quote(python)} {shlex.quote(hook)}"
+    listen = f"{shlex.quote(python)} {shlex.quote(str(Path(hook).with_name(LISTENER)))}"
     for event in EVENTS:
-        hooks.setdefault(event, []).append({
-            "matcher": MATCHERS.get(event, ""),
-            "hooks": [{"type": "command", "command": command, "timeout": _timeout(event, wait_timeout_s)}],
-        })
+        entries = [{"type": "command", "command": command, "timeout": _timeout(event, wait_timeout_s)}]
+        if event in LISTEN_EVENTS:
+            entries.append({"type": "command", "command": listen, "asyncRewake": True, "timeout": LISTEN_TIMEOUT_S})
+        hooks.setdefault(event, []).append({"matcher": MATCHERS.get(event, ""), "hooks": entries})
     _save(settings_path, settings)
 
 
