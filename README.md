@@ -1,6 +1,6 @@
 # PSV Agent Remote
 
-A PlayStation Vita companion for coding agents. When the agent needs a decision, the Vita lights up and chimes: you read the request, approve or deny it, or answer the agent's question, without going back to your computer. When a session finishes its turn, the Vita tells you it is idle.
+A PlayStation Vita companion for coding agents. When the agent needs a decision, the Vita lights up and chimes: you read the request, approve or deny it, or answer the agent's question, without going back to your computer. When a session finishes its turn, the Vita tells you it is idle, and you can reply from the Vita to keep it going.
 
 It currently works with **Claude Code** (terminal CLI and the VS Code extension).
 
@@ -8,7 +8,8 @@ It currently works with **Claude Code** (terminal CLI and the VS Code extension)
 
 - **Approvals on the Vita.** Tool permission requests appear with the full command or diff. Allow, allow for the session, deny, deny with a note typed on the Vita's keyboard, or deny and stop the agent.
 - **Answers to the agent's questions.** Single- and multiple-choice questions, including free-text "Other" answers, or hand the question back to the computer.
-- **The current turn at a glance.** Your prompt and the agent's latest reply, rendered as Markdown: bold, inline code, code blocks, headings, lists, and tables that scroll sideways.
+- **Replies from the Vita.** Press □ on an idle session for one-press replies (**Continue**, **Verify it further**) or type your own. While the agent works, **待った!** stops it after its current step, like Esc at the computer, and a typed reply waits and goes in when the turn ends. The Vita shows whether each reply was delivered.
+- **The current turn at a glance.** Your prompt and the agent's latest reply, rendered as Markdown: bold, inline code, headings, lists, and tables and code blocks that scroll sideways.
 - **Several sessions at once.** One tab per session, a session list, a chime when another session needs you, and an idle notice when a session finishes.
 - **Sofa and desk modes.** In sofa mode decisions go to the Vita; in desk mode they stay on the computer. The mode follows the charger automatically (plugged in = desk, unplugged = sofa) and can be toggled by hand.
 - **Never blocks the agent.** If the Vita is offline, in desk mode, or does not answer in time, the request falls back to the agent's normal on-screen dialog.
@@ -56,7 +57,7 @@ python3 -m venv .venv
 .venv/bin/python install.py
 ```
 
-`install.py` backs up `~/.claude/settings.json` and merges the hooks into it. The hooks point at this checkout, so reinstall if you move it. Restart running Claude Code sessions to pick them up. To remove them, run `.venv/bin/python install.py --uninstall`.
+`install.py` backs up `~/.claude/settings.json` and merges the hooks into it, including a background listener (`psv_listen.py`) that delivers replies from the Vita. The hooks point at this checkout, so reinstall if you move it or update to a version with new hooks. Restart running Claude Code sessions to pick them up. To remove them, run `.venv/bin/python install.py --uninstall`.
 
 Tell the hook where the broker is in `~/.config/psv-agent-remote/config.toml`. Every key is optional:
 
@@ -83,15 +84,18 @@ On the Vita, press START → **Add broker** and enter the broker's address, for 
 | SELECT | Session list (✕ open, □ remove an idle session) |
 | Left stick up/down, D-pad up/down, drag on either touch panel | Scroll |
 | D-pad left/right, left stick left/right | Choose an option |
-| Right stick | Pan a wide table (left/right), switch between tables (up/down) |
+| Right stick | Pan a wide table or code block (left/right), switch between them (up/down) |
+| Sideways drag on a table or code block (either panel) | Pan it |
 | Front touch tap | Press what you tap: tabs, options, list rows, buttons, settings |
 | ✕ | Confirm |
 | ○ | Back |
-| □ | Hide / show the decision sheet |
+| □ | Hide / show the decision sheet; with no decision, open / fold the reply drawer |
 | △ | Toggle sofa / desk mode |
 | START | Settings: brokers, sounds, front touch, screen dimming, exit |
 
-For safety, no option is preselected on a new request, and ✕ is ignored for half a second after a request appears. The rear touch panel only scrolls, so holding the Vita never presses anything. Front touch can be turned off in Settings.
+For safety, no option is preselected on a new request, and ✕ is ignored for half a second after a request appears. The rear touch panel only scrolls and pans, so holding the Vita never presses anything.
+
+In the reply drawer, up/down move between rows and left/right between the buttons of a draft. A typed reply is not sent until you press **Send**; closing the keyboard keeps it as a draft, and □ folds the drawer to one line. If no listener answers within 10 seconds (old hooks, or a client without hook support), the Vita shows **Not delivered** and keeps your text. Front touch can be turned off in Settings.
 
 The app's files live in `ux0:data/psv_agent_remote/`: `config.txt` holds the settings and broker list, and `psk.txt` holds the encryption key.
 
