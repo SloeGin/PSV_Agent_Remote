@@ -137,6 +137,7 @@ static int g_n_tables;
 static bool g_table_vis[UI_MAX_TABLES];
 static unsigned g_turn_rev;
 static bool g_hint_table; /* an overflowing table is on screen: hint the right stick */
+static bool g_hint_reply; /* the session on screen has a reply drawer: hint □ */
 static LineSpan g_cell_spans[MAX_CELL_SPANS]; /* wrapped cell lines, relative to the cell */
 static int g_n_cell_spans;
 static short g_cell_line0[MAX_MD_DOCS][MD_MAX_CELLS], g_cell_nl[MAX_MD_DOCS][MD_MAX_CELLS];
@@ -148,6 +149,7 @@ static int g_turn_area_h;
 
 /* Sheet animation */
 static float g_sheet_y = SCREEN_H;
+static float g_reply_y = SCREEN_H; /* top of the reply drawer, animated */
 static char g_sheet_rid[24];
 
 bool ui_init(void) {
@@ -320,7 +322,10 @@ static void draw_top(const Model *m, const UiView *v, bool show_tabs, uint64_t n
 
 /* ---------- hint strip ---------- */
 
-typedef enum { HINT_PLAIN, HINT_PEEK, HINT_APPROVAL, HINT_QUESTION, HINT_LIST, HINT_CONFIRM, HINT_SETTINGS } HintCtx;
+typedef enum {
+    HINT_PLAIN, HINT_PEEK, HINT_APPROVAL, HINT_QUESTION, HINT_LIST, HINT_CONFIRM, HINT_SETTINGS,
+    HINT_REPLY, HINT_REPLY_PEEK
+} HintCtx;
 
 static int keycap(int x, const char *label) {
     int w = gfx_text_width(F_MONO_MED, 10, label, -1) + 8;
@@ -350,6 +355,7 @@ static void draw_hints(HintCtx ctx, Mode mode) {
     bool tail = true;
     switch (ctx) {
     case HINT_PLAIN:
+        if (g_hint_reply) x = hint_glyph(x, GLYPH_SQUARE, "Reply");
         x = hint_key(x, "L-STICK", "Scroll");
         if (g_hint_table) x = hint_key(x, "R-STICK", "Pan");
         x = hint_key(x, "L/R", "Session");
@@ -357,6 +363,18 @@ static void draw_hints(HintCtx ctx, Mode mode) {
         break;
     case HINT_PEEK:
         x = hint_glyph(x, GLYPH_SQUARE, "Show request");
+        x = hint_key(x, "L-STICK", "Scroll");
+        if (g_hint_table) x = hint_key(x, "R-STICK", "Pan");
+        hint_key(x, "SELECT", "Sessions");
+        break;
+    case HINT_REPLY:
+        x = hint_glyph(x, GLYPH_CROSS, "Choose");
+        x = hint_key(x, "UP/DOWN", "Move");
+        x = hint_glyph(x, GLYPH_CIRCLE, "Close");
+        hint_glyph(x, GLYPH_SQUARE, "Close");
+        break;
+    case HINT_REPLY_PEEK:
+        x = hint_glyph(x, GLYPH_SQUARE, "Reply");
         x = hint_key(x, "L-STICK", "Scroll");
         if (g_hint_table) x = hint_key(x, "R-STICK", "Pan");
         hint_key(x, "SELECT", "Sessions");
@@ -1109,6 +1127,170 @@ static void draw_sheet(const Model *m, const Session *s, const Request *r, const
     vita2d_disable_clipping();
 }
 
+/* ---------- reply drawer ---------- */
+
+#define RROW_H 44
+#define RBOX_BTN_H 38
+#define RBOX_TEXT_LINES 2
+
+static LineSpan g_rbox_lines[RBOX_TEXT_LINES + 1];
+
+static const char *reply_item_label(ReplyItem it) {
+    switch (it) {
+    case RR_CONTINUE: return "Continue";
+    case RR_VERIFY: return "Verify it further";
+    case RR_TYPE: return "Type…";
+    case RR_MATTA: return "待った!";
+    case RR_SEND: return "Send";
+    case RR_EDIT: return "Edit";
+    default: return "Discard";
+    }
+}
+
+static const char *reply_box_text(const Reply *r, const ReplyLayout *l) {
+    return l->box == RB_DRAFT ? r->draft : r->sent;
+}
+
+static int reply_box_h(const Reply *r, const ReplyLayout *l, int *n_text) {
+    *n_text = 0;
+    if (l->box == RB_NONE) return 0;
+    const char *t = reply_box_text(r, l);
+    int n = layout_wrap(t, (int)strlen(t), SHEET_W - 28 - 28, measure_sans, NULL, g_rbox_lines, RBOX_TEXT_LINES + 1);
+    *n_text = n < 1 ? 1 : n > RBOX_TEXT_LINES ? RBOX_TEXT_LINES : n;
+    return 6 + 10 + 14 + *n_text * 27 + 8 + RBOX_BTN_H + 10;
+}
+
+/* What the one-line peek says: a chip, a line of text and a note on the right. */
+static void reply_peek_line(const Reply *r, uint64_t now, const char **chip, unsigned *chip_c, const char **title,
+                            const char **side) {
+    *chip = "REPLY";
+    *chip_c = C_TEAL;
+    *side = "";
+    *title = r->sent;
+    bool stop = r->kind == RK_STOP;
+    bool fresh = now - r->status_ms < REPLY_FADE_MS;
+    switch (r->status) {
+    case RS_SENDING:
+        if (stop) *chip = "待った!", *chip_c = C_ROSE, *title = "Sending…";
+        else *side = "Sending…";
+        return;
+    case RS_QUEUED:
+        *chip = "QUEUED", *chip_c = C_AMBER, *side = "Sends when this turn ends";
+        return;
+    case RS_STOPPING:
+        *chip = "待った!", *chip_c = C_ROSE, *title = "Stopping after the current step…";
+        return;
+    case RS_FAILED:
+        *chip = "NOT DELIVERED", *chip_c = C_DIM;
+        *title = r->draft[0] ? r->draft : stop ? "待った! didn't reach the Mac" : r->sent;
+        *side = r->draft[0] ? "Show" : "";
+        return;
+    default:
+        break;
+    }
+    if (fresh && r->status == RS_DELIVERED) { *side = "Delivered"; return; }
+    if (fresh && r->status == RS_STOPPED) { *chip = "待った!", *chip_c = C_ROSE, *title = "Stopped"; return; }
+    if (fresh && r->status == RS_IGNORED) { *chip = "待った!", *chip_c = C_DIM, *title = "Already idle"; return; }
+    if (fresh && r->status == RS_CANCELLED) { *chip = "REPLY", *chip_c = C_DIM, *title = "Reply withdrawn"; return; }
+    *chip = "DRAFT";
+    *title = r->draft;
+    *side = "Show";
+}
+
+static void draw_reply_header(int sy, const char *chip, unsigned chip_c, const char *title, bool dim_title,
+                              const char *side, bool square) {
+    int cw = gfx_text_width(F_MONO_MED, 11, chip, -1) + (int)strlen(chip) + 15;
+    gfx_round_rect(SHEET_X + 16, sy + 14, cw, 20, 4, chip_c);
+    gfx_text_spaced(F_MONO_MED, SHEET_X + 24, sy + 17, C_BG, 11, 1, chip);
+    int sx = SHEET_X + SHEET_W - 16 - gfx_text_width(F_MONO, 12, side, -1);
+    gfx_text(F_MONO, sx, sy + 17, C_MUTED, 12, side, -1);
+    if (square) gfx_glyph(GLYPH_SQUARE, sx - 20, sy + 17, 14, C_SHEET);
+    int tx = SHEET_X + 16 + cw + 10;
+    text_fit(F_SANS, tx, sy + 13, dim_title ? C_MUTED : C_TEXT, 16, title, sx - 30 - tx, true);
+}
+
+static void draw_reply(const Session *s, uint64_t now) {
+    const Reply *r = &s->reply;
+    bool idle = model_reply_idle(s), working = model_reply_working(s);
+    ReplyLayout l = reply_layout(r, idle, working);
+    bool open = r->drawer == RD_OPEN && (l.n_rows > 0 || l.box != RB_NONE);
+    bool peek = !open && reply_has_peek(r, now);
+    int n_text = 0, box_h = reply_box_h(r, &l, &n_text);
+    int open_h = PEEK_H + 8 + l.n_rows * RROW_H + box_h + 10;
+    float target = open ? (float)(HINT_Y - open_h) : peek ? (float)SHEET_PEEK_TOP : (float)SCREEN_H;
+    g_reply_y += (target - g_reply_y) * 0.22f;
+    if (fabsf(target - g_reply_y) < 0.5f) g_reply_y = target;
+    int sy = (int)g_reply_y;
+    if (sy >= HINT_Y) return;
+
+    vita2d_enable_clipping();
+    gfx_clip(0, TOP_H, SCREEN_W, HINT_Y);
+    if (open) gfx_rect(0, TOP_H, SCREEN_W, HINT_Y - TOP_H, RGBA8(0x0A, 0x08, 0x06, 0x60));
+    gfx_round_rect(SHEET_X, sy, SHEET_W, HINT_Y - sy + 20, 14, C_LINE);
+    gfx_round_rect(SHEET_X + 1, sy + 1, SHEET_W - 2, HINT_Y - sy + 20, 13, C_SHEET);
+    gfx_round_rect(SCREEN_W / 2 - 18, sy + 5, 36, 3, 1, C_LINE);
+
+    if (!open) {
+        const char *chip, *title, *side;
+        unsigned chip_c;
+        reply_peek_line(r, now, &chip, &chip_c, &title, &side);
+        draw_reply_header(sy, chip, chip_c, title, false, side, !strcmp(side, "Show"));
+        hit(HIT_REPLY_PEEK, 0, SHEET_X, sy, SHEET_W, PEEK_H);
+        vita2d_disable_clipping();
+        return;
+    }
+    bool pending = l.box != RB_NONE;
+    draw_reply_header(sy, "REPLY", C_TEAL, idle ? "Reply to Claude" : "Claude is working", false,
+                      pending ? "Fold" : "Close", true);
+    hit(HIT_REPLY_PEEK, 0, SHEET_X, sy, SHEET_W, PEEK_H);
+    gfx_rect(SHEET_X + 1, sy + PEEK_H, SHEET_W - 2, 1, C_LINE2);
+
+    int x = SHEET_X + 14, w = SHEET_W - 28, y = sy + PEEK_H + 8;
+    for (int i = 0; i < l.n_rows; i++, y += RROW_H) {
+        bool on = r->line == i;
+        if (on) gfx_panel(x, y, w, RROW_H - 2, 9, C_LINE, C_TABON);
+        else if (i > 0 && r->line != i - 1) gfx_rect(x + 8, y, w - 16, 1, C_LINE2);
+        ReplyItem it = l.rows[i];
+        bool matta = it == RR_MATTA;
+        gfx_text(matta ? F_SANS_MED : F_SANS, x + 16, y + 10, matta ? C_ROSE : C_TEXT, BODY_SIZE, reply_item_label(it), -1);
+        const char *note = matta ? "stop now" : it == RR_TYPE ? "keyboard" : "";
+        int nx = x + w - 16 - gfx_text_width(F_MONO, 12, note, -1) - (on ? 26 : 0);
+        gfx_text(F_MONO, nx, y + 14, C_MUTED, 12, note, -1);
+        if (on) gfx_glyph(GLYPH_CROSS, x + w - 30, y + 14, 14, C_TABON);
+        hit(HIT_REPLY_ROW, i * 4, x, y, w, RROW_H);
+    }
+    if (pending) {
+        bool queued = l.box == RB_QUEUED;
+        int by = y + 6, bh = box_h - 6 - 4;
+        gfx_panel(x, by, w, bh, 10, queued ? C_AMBER_DEEP : C_LINE2, C_PANEL);
+        gfx_text_spaced(F_MONO_MED, x + 14, by + 10, queued ? C_AMBER : C_MUTED, 10, 1,
+                        queued ? "QUEUED · SENDS WHEN THIS TURN ENDS" : "DRAFT");
+        const char *t = reply_box_text(r, &l);
+        int ty = by + 26;
+        for (int k = 0; k < n_text; k++, ty += 27) {
+            bool last = k == n_text - 1;
+            const LineSpan *sp = &g_rbox_lines[k];
+            if (last) text_fit(F_SANS, x + 14, ty, C_TEXT, BODY_SIZE, t + sp->start, w - 28, false);
+            else gfx_text(F_SANS, x + 14, ty, C_TEXT, BODY_SIZE, t + sp->start, sp->len);
+        }
+        int gap = 8, bw = (w - 28 - gap * (l.n_box - 1)) / l.n_box, btn_y = ty + 8;
+        for (int c = 0; c < l.n_box; c++) {
+            int bx = x + 14 + c * (bw + gap);
+            bool on = r->line == l.n_rows && r->col == c;
+            gfx_panel(bx, btn_y, bw, RBOX_BTN_H, 9, on ? C_AMBER : C_LINE, on ? C_AMBER : C_PANEL);
+            const char *lab = reply_item_label(l.box_items[c]);
+            int tw = gfx_text_width(F_SANS, 14, lab, -1) + (on ? 21 : 0), tx = bx + (bw - tw) / 2;
+            if (on) {
+                gfx_glyph(GLYPH_CROSS, tx, btn_y + (RBOX_BTN_H - 14) / 2, 14, C_AMBER);
+                tx += 21;
+            }
+            gfx_text(F_SANS, tx, btn_y + (RBOX_BTN_H - 14) / 2 - 3, on ? C_BG : C_TEXT2, 14, lab, -1);
+            hit(HIT_REPLY_ROW, l.n_rows * 4 + c, bx, btn_y, bw, RBOX_BTN_H);
+        }
+    }
+    vita2d_disable_clipping();
+}
+
 /* ---------- overlays ---------- */
 
 static void draw_overlays(const UiView *v, uint64_t now) {
@@ -1135,6 +1317,7 @@ static void draw_overlays(const UiView *v, uint64_t now) {
 void ui_draw(const Model *m, const UiView *v, uint64_t now) {
     g_n_hits = 0;
     g_hint_table = false;
+    g_hint_reply = false;
     draw_top(m, v, true, now);
     const Session *s = m->cur >= 0 ? &m->s[m->cur] : NULL;
     const Request *r = model_current_request(m);
@@ -1151,14 +1334,19 @@ void ui_draw(const Model *m, const UiView *v, uint64_t now) {
         return;
     }
     draw_head(m, s, now);
-    draw_turn(m, s, v, r ? SHEET_PEEK_TOP - 8 : HINT_Y - 8, v->turn_scroll);
+    bool reply_open = !r && s->reply.drawer == RD_OPEN && (model_reply_idle(s) || model_reply_working(s));
+    bool reply_peek = !r && !reply_open && reply_has_peek(&s->reply, now);
+    draw_turn(m, s, v, r || reply_peek ? SHEET_PEEK_TOP - 8 : HINT_Y - 8, v->turn_scroll);
     if (r) {
+        g_reply_y = SCREEN_H; /* the decision has the bottom; the reply peek returns after it */
         draw_sheet(m, s, r, v, now);
         draw_hints(m->sheet_hidden ? HINT_PEEK : r->kind == REQ_QUESTION ? HINT_QUESTION : HINT_APPROVAL, m->mode);
     } else {
         g_sheet_y = SCREEN_H;
         g_sheet_rid[0] = 0;
-        draw_hints(HINT_PLAIN, m->mode);
+        g_hint_reply = model_reply_idle(s) || model_reply_working(s);
+        draw_reply(s, now);
+        draw_hints(reply_open ? HINT_REPLY : reply_peek ? HINT_REPLY_PEEK : HINT_PLAIN, m->mode);
     }
     draw_overlays(v, now);
 }
