@@ -162,6 +162,6 @@ Repository layout:
 | `hooks/` | Claude Code hook (`psv_hook.py`), its package `psv_remote/`, the installer, and tests |
 | `vita/` | Vita app sources, host tests, assets, and LiveArea art |
 | `tools/` | Pairing and broker tools, the fake Vita, and font/artwork generators |
-| `docs/` | The UI mockup and the Vita hacking guide (in Chinese) |
+| `docs/` | UI mockups (`mockup/index.html` for the main screens, `mockup/reply.html` for the reply drawer) and the Vita hacking guide (in Chinese) |
 
 The fonts are subsets of Noto Sans SC, JetBrains Mono and Space Grotesk, under the SIL Open Font License (`vita/assets/OFL-*.txt`). The vendored cJSON and Eclipse Paho MQTTPacket libraries keep their own licenses in `vita/third_party/`.

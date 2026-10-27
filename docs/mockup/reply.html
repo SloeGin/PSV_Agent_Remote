@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reply drawer mock</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612; --line:#3a2f27; --line2:#2f2620; --tabon:#2e2520;
+  --text:#f1e6d6; --text2:#c9bba9; --muted:#9c8f80; --dim:#6b5a4a;
+  --amber:#ffb35c; --amber-deep:#6b4a25; --teal:#5fc9b8; --teal-deep:#2d5b54; --rose:#ff7a6b;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Space Grotesk','Noto Sans SC',sans-serif; --cjk:'Noto Sans SC',sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0a08;color:var(--text);font-family:var(--sans);padding:24px 16px 60px}
+h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4px;text-align:center}
+.sub{font-size:13px;color:var(--muted);margin:0 0 22px;text-align:center}
+.grid{display:flex;flex-wrap:wrap;gap:26px 22px;justify-content:center}
+.frame{width:720px}
+.cap{font:500 12px var(--mono);letter-spacing:1px;color:var(--amber);margin:0 0 4px}
+.cap b{color:var(--text);font-weight:500}
+.note{font-size:13px;color:var(--muted);margin:0 0 8px;line-height:19px;min-height:38px}
+.fit{width:720px;height:408px;overflow:hidden;border-radius:6px;border:1px solid #2a221d}
+.scr{width:960px;height:544px;background:var(--bg);position:relative;overflow:hidden;transform:scale(.75);transform-origin:top left;user-select:none}
+.scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);z-index:40}
+.top{position:absolute;left:0;right:0;top:0;height:44px;background:var(--bar);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:6px;z-index:5}
+.logo{font:500 13px var(--mono);letter-spacing:2px;color:var(--amber);margin-right:12px;white-space:nowrap}
+.logo b{color:var(--muted);font-weight:400}
+.tabs{display:flex;gap:4px;flex:1;min-width:0}
+.tab{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;font-size:15px;color:var(--muted);white-space:nowrap;border:1px solid transparent}
+.tab.on{background:var(--tabon);color:var(--text);border-color:var(--line)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.dot.ring{background:transparent;border:2px solid var(--muted)}
+.dot.breathe{animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.31}}
+.meta{display:flex;align-items:center;gap:10px;font:12px var(--mono);color:var(--muted);white-space:nowrap}
+.badge{font:500 11px var(--mono);letter-spacing:1px;border-radius:5px;padding:2px 7px;border:1px solid;color:var(--amber);border-color:var(--amber-deep)}
+.hints{position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line2);background:#14100d;z-index:20}
+.hints span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.g{display:inline-block;width:14px;height:14px;vertical-align:-2px;flex:none}
+.lr{font:500 10px var(--mono);border:1px solid var(--dim);border-radius:3px;padding:0 4px;color:var(--text2)}
+.head{position:absolute;top:52px;left:16px;right:16px;display:flex;align-items:center;gap:12px;height:40px}
+.head .big{font-size:28px}
+.head .when{font:12px var(--mono);color:var(--muted)}
+.working{display:inline-flex;gap:4px}
+.working i{width:6px;height:16px;background:var(--teal);opacity:.25;animation:bar 1.2s infinite}
+.working i:nth-child(2){animation-delay:.2s}.working i:nth-child(3){animation-delay:.4s}
+@keyframes bar{30%{opacity:1}}
+.turnbox{position:absolute;top:100px;left:16px;right:30px;bottom:38px;overflow:hidden}
+.item{margin:0 0 14px}
+.who{font:500 11px var(--mono);letter-spacing:1.5px;margin-bottom:3px}
+.who.you{color:var(--amber)} .who.claude{color:var(--teal)}
+.utext{font:17px/29px var(--cjk);color:var(--text);border-left:3px solid var(--amber-deep);padding-left:12px}
+.ctext{font:17px/29px var(--cjk);color:var(--text2)}
+.tool{font:14px/24px var(--mono);color:var(--muted);margin:-6px 0 12px}
+.tool b{color:var(--teal);font-weight:400}
+.scrim{position:absolute;left:0;right:0;top:44px;bottom:30px;background:rgba(10,8,6,.38);z-index:8}
+/* drawer (reply) and sheet (decision) share the panel style */
+.drawer{position:absolute;left:10px;right:10px;bottom:30px;background:var(--sheet);border:1px solid var(--line);border-bottom:none;border-radius:14px 14px 0 0;z-index:10;display:flex;flex-direction:column}
+.peek{height:46px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;position:relative}
+.drawer.open .peek{border-bottom:1px solid var(--line2)}
+.peek::before{content:"";position:absolute;left:50%;top:5px;width:36px;height:3px;margin-left:-18px;border-radius:2px;background:var(--line)}
+.peek .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px}
+.peek .ttl.dimt{color:var(--muted)}
+.peek .side{font:12px var(--mono);color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.chip{font:500 11px var(--mono);letter-spacing:1px;color:var(--bg);background:var(--teal);border-radius:4px;padding:2px 8px;flex:none}
+.chip.amber{background:var(--amber)} .chip.dim{background:var(--dim)} .chip.rose{background:var(--rose)}
+.draftbox{margin:12px 16px 0;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;font:17px/27px var(--cjk);color:var(--text);min-height:50px}
+.draftbox .lab{font:500 10px var(--mono);letter-spacing:1.5px;color:var(--muted);display:block;margin-bottom:2px}
+.draftbox.queued{border-style:dashed}
+.opts{height:64px;display:flex;gap:8px;padding:11px 14px;flex:none}
+.opt{flex:1;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;color:var(--text2);white-space:nowrap}
+.opt.sel{background:var(--amber);border-color:var(--amber);color:var(--bg)}
+.opt.matta{color:var(--rose);border-color:#5a2d27;font-family:var(--cjk);font-weight:500}
+.opt.matta.sel{background:var(--rose);border-color:var(--rose);color:var(--bg)}
+.opt .kb{font-size:13px;opacity:.7}
+.rows{padding:8px 14px 12px;display:flex;flex-direction:column;gap:4px}
+.rrow{height:44px;display:flex;align-items:center;gap:12px;padding:0 16px;border-radius:9px;border:1px solid transparent;font-size:17px;color:var(--text)}
+.rrow + .rrow{box-shadow:inset 0 1px 0 var(--line2)}
+.rrow.on{background:var(--tabon);border-color:var(--line);box-shadow:none}
+.rrow.on + .rrow{box-shadow:none}
+.rrow.matta{color:var(--rose);font-family:var(--cjk);font-weight:500}
+.rrow .hint{margin-left:auto;font:12px var(--mono);color:var(--muted)}
+.dblock{margin-top:6px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px 10px}
+.dblock.queued{border-style:dashed;border-color:var(--amber-deep)}
+.dblock .lab{font:500 10px var(--mono);letter-spacing:1.5px;color:var(--muted)}
+.dblock.queued .lab{color:var(--amber)}
+.dblock .txt{font:17px/27px var(--cjk);color:var(--text);margin:2px 2px 10px}
+.dblock .btns{display:flex;gap:8px}
+.dblock .opt{height:38px;flex:1}
+/* decision sheet bits (frame 9) */
+.sheet{position:absolute;left:10px;right:10px;top:56px;bottom:30px;background:var(--sheet);border:1px solid var(--line);border-bottom:none;border-radius:14px 14px 0 0;z-index:10}
+.codebox{position:absolute;top:58px;left:16px;right:16px;bottom:84px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 16px;font:17px/29px var(--mono);color:var(--text)}
+.codebox .p{color:var(--teal)}
+.sopts{position:absolute;left:0;right:0;bottom:0;height:64px;border-top:1px solid var(--line2);display:flex;gap:8px;padding:11px 14px}
+/* IME */
+.ime{position:absolute;inset:0;background:rgba(10,8,6,.78);z-index:28;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:70px}
+.ime .box{width:600px;background:#e9e6e1;border-radius:6px;padding:14px 16px;color:#222;font:18px var(--sans)}
+.ime .lab{font:13px var(--sans);color:#555;margin-bottom:8px}
+.ime .field{background:#fff;border:1px solid #bbb;border-radius:4px;padding:8px 10px;min-height:42px}
+.ime .caret{display:inline-block;width:2px;height:20px;background:#333;vertical-align:-4px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.ime .kbd{margin-top:18px;width:900px;height:200px;background:#2b2b2b;border-radius:8px;display:grid;grid-template-columns:repeat(11,1fr);gap:6px;padding:12px}
+.ime .kbd i{background:#444;border-radius:4px}
+.ime .sys{font:12px var(--mono);color:#aaa;margin-top:10px}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:180px;background:var(--tabon);border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:14px;z-index:25;white-space:nowrap}
+.legend{max-width:1464px;margin:34px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:#15110e;border:1px solid #2a221d;border-radius:12px;padding:14px 16px;font-size:13px;color:var(--text2);line-height:20px}
+.card h2{font:500 11px var(--mono);letter-spacing:2px;color:var(--muted);margin:0 0 8px}
+.card code{font:12px var(--mono);color:var(--amber)}
+</style>
+</head>
+<body>
+<h1>AGENT//REMOTE · REPLY DRAWER</h1>
+<p class="sub">Mockups of the reply drawer, at 75% of the Vita's 960×544. Highlights show where the cursor is.</p>
+<div class="grid" id="grid"></div>
+<div class="legend">
+  <div class="card"><h2>Drawer rules</h2>
+    □ opens the drawer when the session has no decision. □ again (or ○) closes it: fully when there's no draft, to a one-line peek when there is a draft or a queued reply. ✕ presses the highlighted button; nothing is highlighted when it opens.</div>
+  <div class="card"><h2>Decisions win</h2>
+    While a decision is pending, □ belongs to the decision sheet and the reply peek is hidden. A decision that arrives while the keyboard is open takes over as soon as the keyboard closes; the draft comes back as a peek once the decision is resolved.</div>
+</div>
+
+<script>
+const G = {
+  x:`<svg class="g" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="#7aa7ff" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+  o:`<svg class="g" viewBox="0 0 14 14"><circle cx="7" cy="7" r="4.8" fill="none" stroke="#ff6b6b" stroke-width="2.2"/></svg>`,
+  s:`<svg class="g" viewBox="0 0 14 14"><rect x="2.6" y="2.6" width="8.8" height="8.8" fill="none" stroke="#e48bd2" stroke-width="2.2"/></svg>`,
+};
+const dotFor = st => st==='idle' ? '<span class="dot ring"></span>'
+  : st==='working' ? '<span class="dot" style="background:var(--teal)"></span>'
+  : st==='waiting' ? '<span class="dot breathe" style="background:var(--amber)"></span>'
+  : st==='unseen' ? '<span class="dot ring breathe" style="border-color:var(--teal)"></span>' : '';
+
+function topBar(state){
+  return `<div class="top"><div class="logo">AGENT<b>//</b>REMOTE</div>
+  <div class="tabs"><div class="tab on">${dotFor(state)}PSV_agent_remote</div><div class="tab">${dotFor('unseen')}api-server</div><div class="tab">${dotFor('idle')}notes</div></div>
+  <div class="meta"><span class="badge">SOFA</span><span>LINK</span><span style="color:var(--teal)">82%</span></div></div>`;
+}
+function head(state){
+  return state==='idle'
+    ? `<div class="head"><span class="dot ring" style="width:18px;height:18px;border-color:var(--teal);border-width:2px"></span><span class="big">Idle</span><span class="when">finished 2m ago</span></div>`
+    : `<div class="head"><span class="working"><i></i><i></i><i></i></span><span class="big">Working</span><span class="when">running Bash · 41s</span></div>`;
+}
+function turn(state, extra=''){
+  const claude = state==='idle'
+    ? `<div class="item"><div class="who claude">CLAUDE</div><div class="ctext">Added the battery indicator and the auto mode switch. Host tests pass and the VPK builds without warnings. I haven't checked it on the PSV.</div></div>`
+    : `<div class="tool"><b>Bash</b> make -C vita/tests</div><div class="tool"><b>Edit</b> vita/src/ui.c</div><div class="tool"><b>Bash</b> cmake --build vita/build</div>`;
+  return `<div class="turnbox"><div class="item"><div class="who you">YOU</div><div class="utext">Add a battery indicator to the top right, with a charging bolt.</div></div>${claude}${extra}</div>`;
+}
+function row(t, on=false, c='', hint=''){ return `<div class="rrow ${on?'on':''} ${c}">${t}${hint?`<span class="hint">${hint}</span>`:''}</div>`; }
+function dblock(label, text, btns, queued=false){ return `<div class="dblock ${queued?'queued':''}"><div class="lab">${label}</div><div class="txt">${text}</div><div class="btns">${btns.map(b=>`<div class="opt ${b.c||''}">${b.t}</div>`).join('')}</div></div>`; }
+function hints(list){ return `<div class="hints">${list.map(([k,l])=>`<span>${G[k]?G[k]:`<span class="lr">${k}</span>`}${l}</span>`).join('')}</div>`; }
+function opts(list){ return `<div class="opts">${list.map(o=>`<div class="opt ${o.c||''}">${o.t}</div>`).join('')}</div>`; }
+function peek(chip, title, side, chipc='', dimt=false){
+  return `<div class="peek"><span class="chip ${chipc}">${chip}</span><span class="ttl ${dimt?'dimt':''}">${title}</span><span class="side">${side}</span></div>`;
+}
+
+const IDLE_H = [['s','Close'],['x','Choose'],['L-STICK','Move']];
+const PLAIN_H = [['s','Reply'],['L-STICK','Scroll'],['L/R','Session'],['SELECT','Sessions']];
+
+const frames = [
+ {cap:'1 · Idle, □ pressed', note:'Presets on top of the idle turn. Nothing is highlighted until you move; then ✕ sends.', state:'idle',
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to Claude','<span>'+G.s+'</span>Close')}<div class="rows">${row('Continue',true)}${row('Verify it further')}${row('Type…',false,'','⌨ keyboard')}</div></div>`,
+  hints: IDLE_H},
+ {cap:'2 · Type… opens the Vita keyboard', note:'System keyboard. Closing it does not send: you go back to the drawer with the text kept.', state:'idle',
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to Claude','')}<div class="rows">${row('Continue')}${row('Verify it further')}${row('Type…',true)}</div></div>
+  <div class="ime"><div class="box"><div class="lab">Reply to Claude</div><div class="field">also show the percentage when charging<span class="caret"></span></div></div><div class="kbd">${'<i></i>'.repeat(44)}</div></div>`,
+  hints: IDLE_H},
+ {cap:'3 · Back from the keyboard, with a draft', note:'Presets stay as rows; the draft and its own Send · Edit · Discard sit together in one box at the bottom. ←/→ move between the three.', state:'idle',
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to Claude','<span>'+G.s+'</span>Fold')}
+   <div class="rows">${row('Continue')}${row('Verify it further')}${dblock('DRAFT','also show the percentage when charging',[{t:'Send',c:'sel'},{t:'Edit'},{t:'Discard'}])}</div></div>`,
+  hints: [['s','Fold'],['x','Choose'],['o','Fold'],['L-STICK','Move']]},
+ {cap:'4 · □ folds it: a one-line peek, like a hidden decision', note:'The turn view stays readable and scrollable. □ opens the drawer again.', state:'idle',
+  body: `<div class="drawer">${peek('DRAFT','also show the percentage when charging','<span>'+G.s+'</span>Show','',false)}</div>`,
+  hints: [['s','Reply'],['L-STICK','Scroll'],['L/R','Session'],['SELECT','Sessions']], peekpad:true},
+ {cap:'5 · Sent', note:'Sending… until the Mac answers, then Delivered for 3 s. The reply shows up as your line in the new turn.', state:'working',
+  body: `<div class="drawer">${peek('REPLY','also show the percentage when charging','Delivered ✓','',false)}</div>`,
+  hints: PLAIN_H, peekpad:true,
+  turnextra: ''},
+ {cap:'6 · Working, □ pressed', note:'待った! stops the agent after its current step, like Esc. Type… writes a reply that waits and goes in when the turn ends.', state:'working',
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Claude is working','<span>'+G.s+'</span>Close')}<div class="rows">${row('待った!',true,'matta','stop now')}${row('Type…',false,'','⌨ keyboard')}</div></div>`,
+  hints: IDLE_H},
+ {cap:'7 · Working, a typed reply sent', note:'It waits on the Mac and goes in the moment the turn ends. Edit reopens the keyboard and re-queues it; Discard withdraws it.', state:'working',
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Claude is working','<span>'+G.s+'</span>Fold')}
+   <div class="rows">${row('待った!',false,'matta','stop now')}${dblock('QUEUED · SENDS WHEN THIS TURN ENDS','use the amber color for the low battery state too',[{t:'Edit',c:'sel'},{t:'Discard'}],true)}</div></div>`,
+  hints: [['s','Fold'],['x','Choose'],['o','Fold'],['L-STICK','Move']]},
+ {cap:'8 · 待った! pressed', note:'Stopping… until the current step finishes; then Stopped and the tab goes idle (gray ring).', state:'working',
+  body: `<div class="drawer">${peek('待った!','Stopping after the current step…','','rose')}</div>`,
+  hints: PLAIN_H, peekpad:true},
+ {cap:'9 · A decision arrives while you have a draft', note:'The decision takes the bottom; □ now shows/hides the decision only. The draft peek comes back after you answer.', state:'waiting',
+  body: `<div class="scrim"></div><div class="sheet">${peek('BASH','Needs your approval','28s left','amber')}<div class="codebox"><span class="p">$</span> rm -rf vita/build &amp;&amp; cmake -S vita -B vita/build</div>
+   <div class="sopts">${['Allow','Allow session','Deny','Deny + note','Stop'].map(t=>`<div class="opt">${t}</div>`).join('')}</div></div>`,
+  hints: [['x','Confirm'],['s','Hide'],['L-STICK','Move'],['SELECT','Sessions']]},
+ {cap:'10 · Nothing picked it up', note:'No answer from the Mac within 10 s (old hooks, or a client without the listener). The text is back as a draft, ready to resend.', state:'idle',
+  body: `<div class="drawer">${peek('NOT DELIVERED','also show the percentage when charging','<span>'+G.s+'</span>Show','dim')}</div>`,
+  hints: PLAIN_H, peekpad:true},
+];
+
+document.getElementById('grid').innerHTML = frames.map(f=>{
+  const tb = f.state==='waiting' ? 'working' : f.state;
+  let t = turn(tb, f.turnextra||'');
+  if (f.cap.startsWith('5')) t = `<div class="turnbox"><div class="item"><div class="who you">YOU · FROM PSV</div><div class="utext">also show the percentage when charging</div></div><div class="tool"><b>Read</b> vita/src/ui.c</div></div>`;
+  if (f.peekpad) t = t.replace('class="turnbox"','class="turnbox" style="bottom:84px"');
+  return `<div class="frame"><div class="cap">${f.cap}</div><div class="note">${f.note}</div>
+  <div class="fit"><div class="scr">${topBar(f.state==='waiting'?'waiting':tb)}${head(tb)}${t}${f.body}${hints(f.hints)}<div class="scan"></div></div></div></div>`;
+}).join('');
+</script>
+</body>
+</html>
