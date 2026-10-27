@@ -32,6 +32,7 @@ add_executable(${PROJECT_NAME}
   src/input.c
   src/settings.c
   src/sessionlist.c
+  src/reply.c
   src/view.c
   src/outbox.c
   src/reconnect.c

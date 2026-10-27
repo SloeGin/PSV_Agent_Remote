@@ -10,7 +10,7 @@ CFLAGS = -std=c11 -Wall -Wextra -Werror -g $(SAN) $(INCLUDES)
 VENDOR_CFLAGS = -std=c11 -g -w $(SAN) $(INCLUDES)
 LDFLAGS = $(SAN)
 
-PURE = util config protocol model textlayout input settings view outbox reconnect sessionlist markdown psk
+PURE = util config protocol model textlayout input settings view outbox reconnect sessionlist markdown psk reply
 SRCS = $(wildcard $(addprefix ../src/,$(addsuffix .c,$(PURE))))
 VENDOR_OBJS = cJSON.o
 MQTT_SRCS = ../src/mqtt_client.c ../src/util.c ../src/psk.c
