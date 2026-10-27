@@ -3,10 +3,11 @@
 #include <stddef.h>
 
 #include "model.h"
+#include "reply.h"
 
 #define PROTOCOL_MAX_PAYLOAD 131072
 
-typedef enum { TOPIC_OTHER, TOPIC_STATUS, TOPIC_REQUEST, TOPIC_TURN } TopicKind;
+typedef enum { TOPIC_OTHER, TOPIC_STATUS, TOPIC_REQUEST, TOPIC_TURN, TOPIC_REPLY_STATE } TopicKind;
 
 TopicKind protocol_parse_topic(const char *topic, char sid[64], char rid[24]);
 
@@ -30,3 +31,8 @@ int protocol_build_approval(const char *rid, const char *choice, const char *not
 int protocol_build_answers(const Request *r, char *out, size_t cap);
 int protocol_build_mac(const char *rid, char *out, size_t cap);
 int protocol_build_response(const char *rid, const char *choice, char *out, size_t cap);
+
+/* A reply to a session: {"id","kind","text"}; text only for RK_TEXT. */
+int protocol_build_reply(const char *id, ReplyKind kind, const char *text, char *out, size_t cap);
+/* The listener's {"id","state"} on claude/session/<sid>/reply_state. */
+bool protocol_parse_reply_state(const char *json, size_t len, char id[24], char state[16]);

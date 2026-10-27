@@ -1,5 +1,7 @@
 #include <stdlib.h>
+#include <string.h>
 
+#include "cJSON.h"
 #include "protocol.h"
 #include "test.h"
 
@@ -193,8 +195,53 @@ static void t_build_answers(void) {
     CHECK(protocol_build_mac("r9", b, 8) < 0);
 }
 
+static void t_reply_topics(void) {
+    char sid[64], rid[24];
+    CHECK(protocol_parse_topic("claude/session/abc/reply_state", sid, rid) == TOPIC_REPLY_STATE);
+    CHECK_STR(sid, "abc");
+    CHECK(protocol_parse_topic("claude/session/abc/reply", sid, rid) == TOPIC_OTHER);
+}
+
+static void t_build_reply(void) {
+    char buf[256];
+    int n = protocol_build_reply("id1", RK_TEXT, "say \"hi\" 待った!", buf, sizeof buf);
+    CHECK(n > 0);
+    cJSON *o = cJSON_ParseWithLength(buf, (size_t)n);
+    CHECK(o != NULL);
+    CHECK_STR(cJSON_GetObjectItem(o, "id")->valuestring, "id1");
+    CHECK_STR(cJSON_GetObjectItem(o, "kind")->valuestring, "text");
+    CHECK_STR(cJSON_GetObjectItem(o, "text")->valuestring, "say \"hi\" 待った!");
+    cJSON_Delete(o);
+    n = protocol_build_reply("id2", RK_STOP, NULL, buf, sizeof buf);
+    o = cJSON_ParseWithLength(buf, (size_t)n);
+    CHECK_STR(cJSON_GetObjectItem(o, "kind")->valuestring, "stop");
+    CHECK(cJSON_GetObjectItem(o, "text") == NULL);
+    cJSON_Delete(o);
+    n = protocol_build_reply("id3", RK_CANCEL, "ignored", buf, sizeof buf);
+    o = cJSON_ParseWithLength(buf, (size_t)n);
+    CHECK_STR(cJSON_GetObjectItem(o, "kind")->valuestring, "cancel");
+    CHECK(cJSON_GetObjectItem(o, "text") == NULL);
+    cJSON_Delete(o);
+    CHECK(protocol_build_reply("id1", RK_TEXT, "a long enough text", buf, 10) == -1);
+}
+
+static void t_parse_reply_state(void) {
+    char id[24], state[16];
+    const char *ok = "{\"id\":\"a\",\"state\":\"queued\"}";
+    CHECK(protocol_parse_reply_state(ok, strlen(ok), id, state));
+    CHECK_STR(id, "a");
+    CHECK_STR(state, "queued");
+    const char *bad[] = {"{\"id\":\"a\"}", "{\"state\":\"queued\"}", "{\"id\":1,\"state\":\"queued\"}",
+                         "{\"id\":\"0123456789012345678901234\",\"state\":\"queued\"}",
+                         "{\"id\":\"a\",\"state\":\"a-much-too-long-state\"}", "[]", ""};
+    for (size_t i = 0; i < sizeof bad / sizeof *bad; i++) CHECK(!protocol_parse_reply_state(bad[i], strlen(bad[i]), id, state));
+}
+
 int main(void) {
     RUN(t_turn_topic);
+    RUN(t_reply_topics);
+    RUN(t_build_reply);
+    RUN(t_parse_reply_state);
     RUN(t_turn);
     RUN(t_question_request);
     RUN(t_build_approval_escapes_note);

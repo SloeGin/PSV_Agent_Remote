@@ -29,6 +29,7 @@ TopicKind protocol_parse_topic(const char *topic, char sid[64], char rid[24]) {
     const char *rest = slash + 1;
     if (strcmp(rest, "status") == 0) return TOPIC_STATUS;
     if (strcmp(rest, "turn") == 0) return TOPIC_TURN;
+    if (strcmp(rest, "reply_state") == 0) return TOPIC_REPLY_STATE;
     if (strncmp(rest, "request/", 8) == 0) {
         const char *r = rest + 8;
         if (take_segment(r, strlen(r), rid, 24)) return TOPIC_REQUEST;
@@ -239,4 +240,28 @@ bool protocol_is_offline_flag(const char *topic, const uint8_t *payload, size_t 
 
 int protocol_build_response(const char *rid, const char *choice, char *out, size_t cap) {
     return protocol_build_approval(rid, choice, NULL, out, cap);
+}
+
+int protocol_build_reply(const char *id, ReplyKind kind, const char *text, char *out, size_t cap) {
+    static const char *const KINDS[] = {"text", "stop", "cancel"};
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "id", id);
+    cJSON_AddStringToObject(o, "kind", KINDS[kind]);
+    if (kind == RK_TEXT) cJSON_AddStringToObject(o, "text", text ? text : "");
+    return print_json(o, out, cap);
+}
+
+/* A required string that must fit dst[cap] without truncation. */
+static bool get_exact(const cJSON *obj, const char *key, char *dst, size_t cap) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(obj, key);
+    if (!cJSON_IsString(item) || !item->valuestring[0] || strlen(item->valuestring) >= cap) return false;
+    snprintf(dst, cap, "%s", item->valuestring);
+    return true;
+}
+
+bool protocol_parse_reply_state(const char *json, size_t len, char id[24], char state[16]) {
+    cJSON *root = parse_object(json, len);
+    bool ok = root && get_exact(root, "id", id, 24) && get_exact(root, "state", state, 16);
+    cJSON_Delete(root);
+    return ok;
 }
