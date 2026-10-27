@@ -82,6 +82,13 @@ void reply_select(Reply *r, int line, int col) {
 }
 
 /* Close the drawer, leaving a peek while a draft or a typed reply is pending. */
+int reply_drag_steps(int *acc, int pan_px) {
+    *acc -= pan_px; /* finger moving right moves the highlight right */
+    int steps = *acc / REPLY_DRAG_STEP_PX;
+    *acc -= steps * REPLY_DRAG_STEP_PX;
+    return steps;
+}
+
 static void fold(Reply *r) {
     r->drawer = r->draft[0] || (reply_in_flight(r) && r->sent_typed) ? RD_PEEK : RD_HIDDEN;
 }

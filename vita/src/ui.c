@@ -1277,11 +1277,12 @@ static void draw_reply(const Session *s, uint64_t now) {
         for (int c = 0; c < l.n_box; c++) {
             int bx = x + 14 + c * (bw + gap);
             bool on = r->line == l.n_rows && r->col == c;
-            gfx_panel(bx, btn_y, bw, RBOX_BTN_H, 9, on ? C_AMBER : C_LINE, on ? C_AMBER : C_PANEL);
+            unsigned fill = l.box_items[c] == RR_DISCARD ? C_ROSE : C_AMBER; /* like Remove in the delete dialog */
+            gfx_panel(bx, btn_y, bw, RBOX_BTN_H, 9, on ? fill : C_LINE, on ? fill : C_PANEL);
             const char *lab = reply_item_label(l.box_items[c]);
             int tw = gfx_text_width(F_SANS, 14, lab, -1) + (on ? 21 : 0), tx = bx + (bw - tw) / 2;
             if (on) {
-                gfx_glyph(GLYPH_CROSS, tx, btn_y + (RBOX_BTN_H - 14) / 2, 14, C_AMBER);
+                gfx_glyph(GLYPH_CROSS, tx, btn_y + (RBOX_BTN_H - 14) / 2, 14, fill);
                 tx += 21;
             }
             gfx_text(F_SANS, tx, btn_y + (RBOX_BTN_H - 14) / 2 - 3, on ? C_BG : C_TEXT2, 14, lab, -1);

@@ -131,6 +131,7 @@ typedef struct {
     bool wake_touch; /* the finger that woke the screen must not also press what it lands on */
     unsigned tables_rev; /* ui_turn_rev() the table focus and pans belong to */
     PowerWatch power;    /* plug in → desk mode, unplug → sofa mode */
+    int reply_drag_acc;  /* sideways drag not yet turned into a reply-button step */
 } App;
 
 static void show_toast(App *app, const char *msg, uint64_t now) {
@@ -339,7 +340,8 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
     if (s && !decision && (idle || working) && s->reply.drawer == RD_OPEN) {
         Reply *rp = &s->reply;
         ReplyLayout l = reply_layout(rp, idle, working);
-        reply_move(rp, &l, actions_cursor_lines(a), a->sel_dir);
+        int dx = a->sel_dir + reply_drag_steps(&app->reply_drag_acc, a->touch_pan_px);
+        reply_move(rp, &l, actions_cursor_lines(a), dx);
         bool press = a->confirm;
         if (a->tap) {
             Hit h = ui_hit_test(a->tap_x, a->tap_y);

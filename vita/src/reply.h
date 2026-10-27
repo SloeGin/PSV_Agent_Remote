@@ -70,6 +70,10 @@ bool reply_square(Reply *r, bool idle, bool working, uint64_t now);
 void reply_back(Reply *r, uint64_t now); /* ○ while open: same as the closing □ */
 void reply_move(Reply *r, const ReplyLayout *l, int dy, int dx);
 void reply_select(Reply *r, int line, int col);
+/* Sideways touch drag (Actions.touch_pan_px, + = finger moved left) as button steps,
+ * one per REPLY_DRAG_STEP_PX; + = move right. *acc carries the remainder between frames. */
+#define REPLY_DRAG_STEP_PX 60
+int reply_drag_steps(int *acc, int pan_px);
 
 /* ✕ on the highlighted button. new_id names the reply if this sends one. */
 ReplyAct reply_activate(Reply *r, bool idle, bool working, const char *new_id, uint64_t now);
