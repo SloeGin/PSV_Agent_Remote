@@ -223,8 +223,18 @@ static unsigned state_color(SessState s) {
     }
 }
 
-static void draw_state_dot(const Session *s, int cx, int cy, int r, unsigned bg) {
-    if (s->n_reqs > 0) gfx_circle(cx, cy, r, C_AMBER);
+/* Fades c's alpha 0x50-0xFF and back over ~1.6 s. */
+static unsigned breathe(unsigned c, uint64_t now) {
+    float t = (float)(now % 1600) / 1600.0f;
+    unsigned a = 0x50 + (unsigned)(0xAF * (0.5f - 0.5f * cosf(t * 6.2831853f)));
+    return (c & 0x00FFFFFFu) | (a << 24);
+}
+
+/* Solid while there is something going on, a ring once finished; the dot
+ * breathes while it wants you: a decision, or a finish you haven't looked at. */
+static void draw_state_dot(const Session *s, int cx, int cy, int r, unsigned bg, uint64_t now) {
+    if (s->n_reqs > 0 || s->state == ST_WAITING) gfx_circle(cx, cy, r, breathe(C_AMBER, now));
+    else if (s->state == ST_IDLE && s->unseen) gfx_ring(cx, cy, r, 2, breathe(C_TEAL, now), bg);
     else if (s->state == ST_IDLE) gfx_ring(cx, cy, r, 2, C_MUTED, bg);
     else gfx_circle(cx, cy, r, state_color(s->state));
 }
@@ -244,11 +254,7 @@ static int draw_battery(const UiView *v, int right, uint64_t now) {
     gfx_round_rect(bx + 1, by + 1, bw - 2, bh - 2, 1, C_BAR);
     gfx_rect(bx + bw, by + 4, 2, 4, c);
     unsigned fill = c;
-    if (v->charging && v->battery_pct < 100) { /* breathe: alpha 0x50-0xFF over ~1.6 s */
-        float t = (float)(now % 1600) / 1600.0f;
-        unsigned a = 0x50 + (unsigned)(0xAF * (0.5f - 0.5f * cosf(t * 6.2831853f)));
-        fill = (c & 0x00FFFFFFu) | (a << 24);
-    }
+    if (v->charging && v->battery_pct < 100) fill = breathe(c, now);
     int fw = (bw - 4) * v->battery_pct / 100;
     if (fw > 0) gfx_rect(bx + 2, by + 2, fw, bh - 4, fill);
     if (v->charging || v->power_online) { /* bolt */
@@ -305,7 +311,7 @@ static void draw_top(const Model *m, const UiView *v, bool show_tabs, uint64_t n
         int w = widths[i] - 4;
         bool on = i == m->cur;
         if (on) gfx_panel(x, 6, w, 32, 8, C_LINE, C_TABON);
-        if (!(s->flash && (now / 500) % 2)) draw_state_dot(s, x + 16, TOP_H / 2, 5, on ? C_TABON : C_BAR);
+        if (!(s->flash && (now / 500) % 2)) draw_state_dot(s, x + 16, TOP_H / 2, 5, on ? C_TABON : C_BAR, now);
         gfx_text(F_SANS, x + 29, 12, on ? C_TEXT : C_MUTED, TEXT_SIZE, s->project, -1);
         hit(HIT_TAB, i, x, 0, w, TOP_H);
         x += widths[i];
@@ -1166,7 +1172,7 @@ static void state_label(const Session *s, uint64_t now, char *out, size_t cap) {
     else if (s->state == ST_IDLE) {
         char ago[24];
         format_ago(ago, sizeof ago, now - s->idle_since_ms);
-        snprintf(out, cap, "Idle · %s", ago);
+        snprintf(out, cap, s->unseen ? "Finished · not seen · %s" : "Idle · %s", ago);
     } else snprintf(out, cap, "Unknown");
 }
 
@@ -1187,7 +1193,7 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
         if (y + rowh < top || y > HINT_Y) continue;
         bool on = i == l->cursor;
         if (on) gfx_panel(PAD, y, SCREEN_W - 2 * PAD, 58, 9, C_LINE, C_TABON);
-        draw_state_dot(s, PAD + 22, y + 29, 6, on ? C_TABON : C_BG);
+        draw_state_dot(s, PAD + 22, y + 29, 6, on ? C_TABON : C_BG, now);
         int x = gfx_text(F_SANS, PAD + 42, y + 8, C_TEXT, BODY_SIZE, s->project, -1);
         if (i == m->cur) gfx_text(F_MONO, x + 8, y + 12, C_DIM, 11, "· showing", -1);
         text_fit(F_MONO, PAD + 42, y + 34, C_DIM, 11, s->cwd, SCREEN_W - 380, false);

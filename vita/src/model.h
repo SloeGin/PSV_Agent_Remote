@@ -96,6 +96,7 @@ typedef struct {
     uint64_t idle_since_ms;
     uint64_t last_ms;
     bool flash;
+    bool unseen; /* finished while another tab was on screen, not looked at since */
     Request reqs[MAX_REQS]; /* oldest first */
     int n_reqs;
 } Session;

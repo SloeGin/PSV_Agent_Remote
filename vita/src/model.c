@@ -49,6 +49,7 @@ static int find(const Model *m, const char *sid) {
 /* Reset the selection and lockout clock whenever a different page is shown;
  * a request that was not on screen before opens its sheet expanded. */
 static void sync_view(Model *m, uint64_t now) {
+    if (m->cur >= 0) m->s[m->cur].unseen = false; /* on screen counts as seen */
     const char *sid = m->cur >= 0 ? m->s[m->cur].sid : "";
     const Request *r = model_current_request(m);
     const char *rid = r ? r->rid : "";
@@ -112,6 +113,8 @@ unsigned model_on_status(Model *m, const char *sid, const StatusMsg *st, uint64_
     /* Not for a session first seen already waiting: that is a retained status on (re)connect. */
     if (!created && s->state != ST_WAITING && st->state == ST_WAITING) ev |= MEV_WAITING;
     if (st->state == ST_IDLE && (created || s->state != ST_IDLE)) s->idle_since_ms = now;
+    if (ev & MEV_IDLE) s->unseen = true;
+    else if (st->state != ST_IDLE) s->unseen = false;
     s->state = st->state;
     if (st->project[0]) snprintf(s->project, sizeof s->project, "%s", st->project);
     if (st->cwd[0]) snprintf(s->cwd, sizeof s->cwd, "%s", st->cwd);
@@ -223,6 +226,7 @@ void model_select(Model *m, int idx, uint64_t now) {
 
 void model_remove_at(Model *m, int idx) {
     if (idx >= 0 && idx < m->n) remove_session(m, idx);
+    if (m->cur >= 0) m->s[m->cur].unseen = false;
 }
 
 /* ---------- rows on the sheet ---------- */

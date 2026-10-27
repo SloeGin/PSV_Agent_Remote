@@ -438,6 +438,47 @@ static void t_turn_owned_and_replaced(void) {
     model_free(&m);
 }
 
+static void t_unseen_finish(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    StatusMsg r = st(ST_RUNNING, "a"), i = st(ST_IDLE, "a");
+    model_on_status(&m, "A", &r, 0);
+    model_on_status(&m, "B", &r, 0);
+    CHECK_STR(model_current(&m)->sid, "A");
+    model_on_status(&m, "B", &i, 10); /* finished in a tab you are not on */
+    CHECK(m.s[1].unseen);
+    model_on_status(&m, "B", &r, 20); /* continued on the computer */
+    CHECK(!m.s[1].unseen);
+    model_on_status(&m, "B", &i, 30);
+    CHECK(m.s[1].unseen);
+    model_on_status(&m, "B", &i, 35); /* a repeated idle status keeps it */
+    CHECK(m.s[1].unseen);
+    model_switch(&m, +1, 40);          /* looked at it on the PSV */
+    CHECK(!m.s[1].unseen);
+    model_on_status(&m, "A", &i, 50);
+    CHECK(m.s[0].unseen);
+    model_select(&m, 0, 60);           /* opened from the session list */
+    CHECK(!m.s[0].unseen);
+    model_on_status(&m, "A", &r, 70);
+    model_on_status(&m, "A", &i, 80); /* finished while on screen */
+    CHECK(!m.s[0].unseen);
+    model_free(&m);
+}
+
+static void t_unseen_cleared_when_removal_shows_it(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    StatusMsg r = st(ST_RUNNING, "a"), i = st(ST_IDLE, "a");
+    model_on_status(&m, "A", &r, 0);
+    model_on_status(&m, "B", &r, 0);
+    model_on_status(&m, "B", &i, 10);
+    CHECK(m.s[1].unseen);
+    model_remove_at(&m, 0); /* B is now on screen */
+    CHECK_STR(model_current(&m)->sid, "B");
+    CHECK(!m.s[0].unseen);
+    model_free(&m);
+}
+
 static void t_switch_clears_flash(void) {
     Model m;
     model_init(&m, MODE_SOFA);
@@ -560,6 +601,8 @@ int main(void) {
     RUN(t_sel_resets_when_request_changes);
     RUN(t_confirm_rejects_expired);
     RUN(t_switch_clears_flash);
+    RUN(t_unseen_finish);
+    RUN(t_unseen_cleared_when_removal_shows_it);
     RUN(t_remove_and_select);
     RUN(t_sheet_hide_blocks_and_rearms);
     RUN(t_new_request_unhides);
