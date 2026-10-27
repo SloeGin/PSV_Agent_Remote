@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "reply.h"
 
 typedef enum { ST_UNKNOWN, ST_RUNNING, ST_WAITING, ST_IDLE } SessState;
 
@@ -99,6 +100,7 @@ typedef struct {
     bool unseen; /* finished while another tab was on screen, not looked at since */
     Request reqs[MAX_REQS]; /* oldest first */
     int n_reqs;
+    Reply reply; /* the reply drawer for this session */
 } Session;
 
 typedef struct {
@@ -129,6 +131,10 @@ void model_on_turn(Model *m, const char *sid, TurnItem *items, int n, uint64_t n
 void model_tick(Model *m, uint64_t now);
 
 Session *model_current(Model *m);
+Session *model_find(Model *m, const char *sid);
+/* Which reply drawer a session gets; both false while a decision is pending or the state is unknown. */
+bool model_reply_idle(const Session *s);
+bool model_reply_working(const Session *s);
 const Request *model_current_request(const Model *m);
 int model_pending_count(const Model *m);
 bool model_request_expired(const Request *r, uint64_t now);

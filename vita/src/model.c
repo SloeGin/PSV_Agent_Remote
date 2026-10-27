@@ -93,6 +93,7 @@ static int get_or_create(Model *m, const char *sid, SessState initial, uint64_t 
     memset(s, 0, sizeof *s);
     snprintf(s->sid, sizeof s->sid, "%s", sid);
     snprintf(s->project, sizeof s->project, "?");
+    reply_init(&s->reply);
     s->state = initial;
     s->last_ms = now;
     if (m->cur < 0) m->cur = i;
@@ -195,6 +196,17 @@ void model_tick(Model *m, uint64_t now) {
 
 Session *model_current(Model *m) {
     return m->cur >= 0 ? &m->s[m->cur] : NULL;
+}
+
+Session *model_find(Model *m, const char *sid) {
+    int i = find(m, sid);
+    return i >= 0 ? &m->s[i] : NULL;
+}
+
+bool model_reply_idle(const Session *s) { return s->n_reqs == 0 && s->state == ST_IDLE; }
+
+bool model_reply_working(const Session *s) {
+    return s->n_reqs == 0 && (s->state == ST_RUNNING || s->state == ST_WAITING);
 }
 
 const Request *model_current_request(const Model *m) {

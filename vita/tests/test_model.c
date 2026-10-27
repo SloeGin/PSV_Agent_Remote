@@ -593,6 +593,45 @@ static void t_waiting_event(void) {
     model_free(&m);
 }
 
+static void t_model_find(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    StatusMsg r = st(ST_RUNNING, "a");
+    model_on_status(&m, "A", &r, 0);
+    model_on_status(&m, "B", &r, 0);
+    CHECK(model_find(&m, "B") == &m.s[1]);
+    CHECK(model_find(&m, "Z") == NULL);
+    model_free(&m);
+}
+
+static void t_new_session_reply_zeroed(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    StatusMsg r = st(ST_RUNNING, "a");
+    model_on_status(&m, "A", &r, 0);
+    CHECK(m.s[0].reply.line == -1 && m.s[0].reply.drawer == RD_HIDDEN && m.s[0].reply.draft[0] == 0);
+    model_free(&m);
+}
+
+static void t_reply_state_flags(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    StatusMsg i = st(ST_IDLE, "a"), r = st(ST_RUNNING, "a"), w = st(ST_WAITING, "a"), u = st(ST_UNKNOWN, "a");
+    model_on_status(&m, "A", &i, 0);
+    CHECK(model_reply_idle(&m.s[0]) && !model_reply_working(&m.s[0]));
+    model_on_status(&m, "A", &r, 1);
+    CHECK(!model_reply_idle(&m.s[0]) && model_reply_working(&m.s[0]));
+    model_on_status(&m, "A", &w, 2);
+    CHECK(model_reply_working(&m.s[0]));
+    model_on_status(&m, "A", &u, 3);
+    CHECK(!model_reply_idle(&m.s[0]) && !model_reply_working(&m.s[0]));
+    model_on_status(&m, "A", &i, 4);
+    Request q = mkreq("r1");
+    model_on_request(&m, "A", "r1", &q, 5);
+    CHECK(!model_reply_idle(&m.s[0]) && !model_reply_working(&m.s[0])); /* the decision has the bottom */
+    model_free(&m);
+}
+
 int main(void) {
     RUN(t_idle_since);
     RUN(t_summary_rev_changes);
@@ -601,6 +640,9 @@ int main(void) {
     RUN(t_sel_resets_when_request_changes);
     RUN(t_confirm_rejects_expired);
     RUN(t_switch_clears_flash);
+    RUN(t_model_find);
+    RUN(t_new_session_reply_zeroed);
+    RUN(t_reply_state_flags);
     RUN(t_unseen_finish);
     RUN(t_unseen_cleared_when_removal_shows_it);
     RUN(t_remove_and_select);

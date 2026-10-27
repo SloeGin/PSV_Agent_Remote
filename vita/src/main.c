@@ -3,6 +3,7 @@
 #include <psp2/ctrl.h>
 #include <psp2/ime_dialog.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/rng.h>
 #include <psp2/power.h>
 #include <psp2/system_param.h>
 #include <psp2/touch.h>
@@ -76,7 +77,7 @@ static void init_dialogs(void) {
 
 /* ---------- system keyboard ---------- */
 
-typedef enum { IME_NONE, IME_BROKER, IME_NOTE, IME_OTHER } ImePurpose;
+typedef enum { IME_NONE, IME_BROKER, IME_NOTE, IME_OTHER, IME_REPLY } ImePurpose;
 
 static SceWChar16 g_ime_title[64];
 static SceWChar16 g_ime_text[TEXT_IME_MAX + 1];
@@ -98,14 +99,15 @@ static bool start_ime(ImePurpose purpose, const char *title, const char *initial
     return sceImeDialogInit(&p) >= 0;
 }
 
-/* True when the dialog has closed; out is "" if it was cancelled. */
-static bool poll_ime(char *out, size_t cap) {
+/* True when the dialog has closed; out is "" and *entered false if it was cancelled. */
+static bool poll_ime(char *out, size_t cap, bool *entered) {
     if (sceImeDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) return false;
     SceImeDialogResult res;
     memset(&res, 0, sizeof res);
     sceImeDialogGetResult(&res);
     out[0] = '\0';
-    if (res.button == SCE_IME_DIALOG_BUTTON_ENTER) utf16_to_utf8((const uint16_t *)g_ime_text, out, cap);
+    *entered = res.button == SCE_IME_DIALOG_BUTTON_ENTER;
+    if (*entered) utf16_to_utf8((const uint16_t *)g_ime_text, out, cap);
     sceImeDialogTerm();
     return true;
 }
@@ -119,7 +121,7 @@ typedef struct {
     SessionList list;
     UiView view;
     ImePurpose ime;
-    char ime_sid[64], ime_rid[24]; /* the request the keyboard was opened for */
+    char ime_sid[64], ime_rid[24]; /* the request (or, for a reply, the session) the keyboard was opened for */
     char note[OTHER_BYTES];
     ScrollState sheet_scroll;
     char turn_sid[64];
@@ -147,6 +149,37 @@ static const char *project_of(const Model *m, const char *sid) {
     return "?";
 }
 
+/* ---------- replies ---------- */
+
+static void new_reply_id(char out[24]) {
+    uint8_t b[8] = {0};
+    sceKernelGetRandomNumber(b, sizeof b);
+    for (int i = 0; i < 8; i++) snprintf(out + 2 * i, 3, "%02x", b[i]);
+}
+
+/* Replies are retained so a listener starting a moment later still finds them;
+ * RA_WITHDRAW clears the retained one (and, via the outbox, any unsent copy). */
+static void publish_reply(const char *sid, const ReplyAct *a) {
+    static char buf[RESPONSE_BYTES];
+    char topic[160];
+    snprintf(topic, sizeof topic, "claude/session/%s/reply", sid);
+    if (a->kind == RA_WITHDRAW) {
+        net_publish(topic, "", 0, 1, 1);
+        return;
+    }
+    int n = protocol_build_reply(a->id, a->rkind, a->text, buf, sizeof buf);
+    if (n > 0) net_publish(topic, buf, (size_t)n, 1, 1);
+}
+
+static void run_reply_act(App *app, const Session *s, const ReplyAct *a) {
+    if (a->kind == RA_PUBLISH || a->kind == RA_WITHDRAW) {
+        publish_reply(s->sid, a);
+    } else if (a->kind == RA_OPEN_IME) {
+        snprintf(app->ime_sid, sizeof app->ime_sid, "%s", s->sid);
+        app->ime = start_ime(IME_REPLY, "Reply to Claude", a->text) ? IME_REPLY : IME_NONE;
+    }
+}
+
 static void handle_messages(App *app, uint64_t now) {
     InMsg msg;
     while (net_pop(&msg)) {
@@ -170,6 +203,11 @@ static void handle_messages(App *app, uint64_t now) {
             if (msg.len == 0) model_on_turn(&app->model, sid, NULL, 0, now);
             else if (protocol_parse_turn((const char *)msg.payload, msg.len, &items, &n))
                 model_on_turn(&app->model, sid, items, n, now);
+        } else if (kind == TOPIC_REPLY_STATE) {
+            char id[24], state[16];
+            Session *s = model_find(&app->model, sid);
+            if (s && protocol_parse_reply_state((const char *)msg.payload, msg.len, id, state))
+                reply_on_state(&s->reply, id, state, now);
         }
         free(msg.payload);
         if (ev & MEV_NEW_REQUEST) {
@@ -233,9 +271,19 @@ static void send_outcome(App *app, const Outcome *o, uint64_t now) {
     }
 }
 
-static void finish_ime(App *app, const char *text, uint64_t now) {
+static void finish_ime(App *app, const char *text, bool entered, uint64_t now) {
     Outcome o;
     switch (app->ime) {
+    case IME_REPLY: {
+        Session *s = model_find(&app->model, app->ime_sid);
+        if (s) {
+            char id[24];
+            new_reply_id(id);
+            ReplyAct a = reply_ime_done(&s->reply, text, entered, id, now);
+            run_reply_act(app, s, &a);
+        }
+        break;
+    }
     case IME_BROKER:
         if (text[0] && settings_ime_result(&app->settings, &app->cfg, text, now) == SET_CHANGED) {
             config_save(&app->cfg, CONFIG_PATH);
@@ -279,7 +327,35 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
     }
     if (a->session_dir) model_switch(m, a->session_dir, now);
     if (a->toggle_mode) toggle_mode(app, now, true);
-    if (a->square) model_toggle_sheet(m, now);
+
+    /* □ belongs to the decision sheet while there is one, otherwise to the reply drawer. */
+    Session *s = model_current(m);
+    bool decision = s && s->n_reqs > 0;
+    bool idle = s && model_reply_idle(s), working = s && model_reply_working(s);
+    if (a->square) {
+        if (decision) model_toggle_sheet(m, now);
+        else if (s) reply_square(&s->reply, idle, working, now);
+    }
+    if (s && !decision && s->reply.drawer == RD_OPEN) {
+        Reply *rp = &s->reply;
+        ReplyLayout l = reply_layout(rp, idle, working);
+        reply_move(rp, &l, actions_cursor_lines(a), a->sel_dir);
+        bool press = a->confirm;
+        if (a->tap) {
+            Hit h = ui_hit_test(a->tap_x, a->tap_y);
+            if (h.kind == HIT_TAB) model_select(m, h.index, now);
+            else if (h.kind == HIT_REPLY_PEEK) reply_square(rp, idle, working, now);
+            else if (h.kind == HIT_REPLY_ROW) reply_select(rp, h.index / 4, h.index % 4), press = true;
+        }
+        if (a->back) reply_back(rp, now);
+        else if (press && rp->drawer == RD_OPEN) {
+            char id[24];
+            new_reply_id(id);
+            ReplyAct act = reply_activate(rp, idle, working, id, now);
+            run_reply_act(app, s, &act);
+        }
+        return;
+    }
 
     const Request *r = model_current_request(m);
     bool sheet = r && !m->sheet_hidden;
@@ -299,6 +375,7 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
         Hit h = ui_hit_test(a->tap_x, a->tap_y);
         if (h.kind == HIT_TAB) model_select(m, h.index, now);
         else if (h.kind == HIT_PEEK) model_toggle_sheet(m, now);
+        else if (h.kind == HIT_REPLY_PEEK && s && !decision) reply_square(&s->reply, idle, working, now);
         else if (h.kind == HIT_OPTION && sheet) {
             model_set_sel(m, h.index);
             tapped_option = true;
@@ -361,7 +438,9 @@ static void update_tables(App *app, const Actions *a) {
         memset(v->table_pan, 0, sizeof v->table_pan);
     }
     const Request *r = model_current_request(&app->model);
-    bool covered = (r && !app->model.sheet_hidden) || app->list.open || app->settings.open;
+    const Session *cs = model_current(&app->model);
+    bool drawer = cs && !cs->n_reqs && cs->reply.drawer == RD_OPEN;
+    bool covered = (r && !app->model.sheet_hidden) || drawer || app->list.open || app->settings.open;
     int n = ui_table_count();
     bool vis[UI_MAX_TABLES];
     for (int i = 0; i < n; i++) vis[i] = ui_table_visible_overflow(i);
@@ -439,7 +518,8 @@ int main(void) {
 
         if (app.ime != IME_NONE) {
             char text[OTHER_BYTES * 2];
-            if (poll_ime(text, sizeof text)) finish_ime(&app, text, now);
+            bool entered;
+            if (poll_ime(text, sizeof text, &entered)) finish_ime(&app, text, entered, now);
         } else if (any_input(&frame) || actions_any(&a)) {
             bool was_dimmed = app.view.dimmed;
             if (was_dimmed && frame.front_down) app.wake_touch = true;
@@ -456,6 +536,12 @@ int main(void) {
         update_tables(&app, app.ime == IME_NONE && !app.view.dimmed ? &a : &none);
         handle_messages(&app, now);
         model_tick(&app.model, now);
+        for (int i = 0; i < app.model.n; i++) {
+            Session *s = &app.model.s[i];
+            reply_sync(&s->reply, s->n_reqs > 0, now);
+            ReplyAct t = reply_tick(&s->reply, now);
+            if (t.kind == RA_WITHDRAW) publish_reply(s->sid, &t);
+        }
         update_scrolls(&app, now);
 
         int connected = net_connected_index();

@@ -37,7 +37,11 @@ void ui_draw_settings(const Model *m, const AppConfig *c, const SettingsState *s
 void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uint64_t now);
 
 /* What a front-panel tap at (x, y) lands on, from the last draw. */
-typedef enum { HIT_NONE, HIT_TAB, HIT_PEEK, HIT_OPTION, HIT_LIST_ROW, HIT_DIALOG, HIT_SETTING, HIT_TABLE } HitKind;
+typedef enum {
+    HIT_NONE, HIT_TAB, HIT_PEEK, HIT_OPTION, HIT_LIST_ROW, HIT_DIALOG, HIT_SETTING, HIT_TABLE,
+    HIT_REPLY_ROW, /* index = line * 4 + col */
+    HIT_REPLY_PEEK
+} HitKind;
 typedef struct {
     HitKind kind;
     int index; /* session, option/row, list row, dialog button or settings row */
