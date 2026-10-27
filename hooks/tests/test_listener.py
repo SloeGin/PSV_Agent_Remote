@@ -98,6 +98,16 @@ def test_stop_when_working_sets_flag(bus, lis, tmp_path):
     assert REPLY not in bus.retained
 
 
+def test_stop_drops_queued_text(bus, lis, tmp_path):
+    lis.on_status(st("running"))
+    lis.on_reply(put_reply(bus, rp("a", "text", "later")))
+    lis.on_reply(put_reply(bus, rp("s", "stop")))
+    assert stop_flag(tmp_path, SID).read_text() == "s"
+    pub = [json.loads(p) for t, p, _ in bus.published if t == STATE and p]
+    assert {"id": "a", "state": "cancelled"} in pub
+    assert lis.on_status(st("idle")) is None  # the stop must not be undone by the held reply
+
+
 def test_stop_when_idle_ignored(bus, lis, tmp_path):
     lis.on_status(st("idle"))
     assert lis.on_reply(put_reply(bus, rp("s", "stop"))) is None

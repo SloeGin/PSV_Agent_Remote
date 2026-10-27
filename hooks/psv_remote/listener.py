@@ -122,6 +122,10 @@ class Listener:
         if msg["kind"] == "stop":
             self._mark_seen(msg["id"])
             if self.working:
+                if self.queued:  # delivering it after the stop would start the agent again
+                    self._mark_seen(self.queued["id"])
+                    self._state(self.queued["id"], "cancelled")
+                    self.queued = None
                 self._dir.mkdir(parents=True, exist_ok=True)
                 stop_flag(self._dir, self._sid).write_text(msg["id"])
                 self._state(msg["id"], "stopping")
