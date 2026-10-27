@@ -61,8 +61,27 @@ static void t_full_drops_oldest(void) {
     outbox_free(&o);
 }
 
+static void t_retained_supersedes(void) {
+    Outbox o;
+    outbox_init(&o);
+    unsigned a = outbox_push(&o, "r/x", "a", 1, 1, 1);
+    outbox_mark_sent(&o, a, 7);
+    outbox_push(&o, "r/y", "b", 1, 1, 0);
+    outbox_push(&o, "r/x", "", 0, 1, 1); /* withdraw: replaces the unacked "a" */
+    CHECK(o.count == 2);
+    CHECK_STR(o.q[0].topic, "r/y");
+    CHECK_STR(o.q[1].topic, "r/x");
+    CHECK(o.q[1].len == 0 && !o.q[1].sent);
+    outbox_ack(&o, 7); /* a late ack for the dropped message is harmless */
+    CHECK(o.count == 2);
+    outbox_push(&o, "r/y", "c", 1, 1, 0); /* not retained: both stay */
+    CHECK(o.count == 3);
+    outbox_free(&o);
+}
+
 int main(void) {
     RUN(t_qos1_kept_until_ack);
+    RUN(t_retained_supersedes);
     RUN(t_qos0_removed_when_sent);
     RUN(t_unacked_resent_after_reconnect);
     RUN(t_failed_send_stays_queued);

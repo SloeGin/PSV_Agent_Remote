@@ -23,6 +23,9 @@ unsigned outbox_push(Outbox *o, const char *topic, const void *payload, size_t l
     uint8_t *copy = malloc(len ? len : 1);
     if (!copy) return 0;
     memcpy(copy, payload, len);
+    if (retain) /* the broker keeps only the newest retained message, so older ones are moot */
+        for (int i = o->count - 1; i >= 0; i--)
+            if (!strcmp(o->q[i].topic, topic)) remove_at(o, i);
     if (o->count == OUTBOX_CAP) remove_at(o, 0);
     OutMsg *m = &o->q[o->count++];
     memset(m, 0, sizeof *m);

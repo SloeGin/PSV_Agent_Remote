@@ -28,7 +28,9 @@ typedef struct {
 void outbox_init(Outbox *o);
 void outbox_free(Outbox *o);
 
-/* Copies payload; drops the oldest message when full. Returns the new seq. */
+/* Copies payload; drops the oldest message when full. A retained message
+ * replaces any older queued message on the same topic, sent-but-unacked ones
+ * included, so a withdrawn retained message is never resent. Returns the new seq. */
 unsigned outbox_push(Outbox *o, const char *topic, const void *payload, size_t len, int qos, int retain);
 
 const OutMsg *outbox_next_unsent(const Outbox *o);
