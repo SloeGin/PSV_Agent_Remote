@@ -15,6 +15,7 @@ typedef struct {
     int confirm_sel; /* 0 = Keep, 1 = Remove */
     char confirm_sid[64]; /* the session the dialog is about; indices can shift meanwhile */
     uint64_t confirm_at;
+    int drag_acc; /* sideways drag not yet turned into a Keep/Remove step */
     char toast[64];
     uint64_t toast_until_ms;
 } SessionList;

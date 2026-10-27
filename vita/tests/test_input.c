@@ -304,7 +304,18 @@ static void t_rear_sideways_drag_pans_where_it_touches(void) {
     CHECK(!a.tap);
 }
 
+static void t_drag_steps(void) {
+    int acc = 0;
+    CHECK(drag_steps(&acc, -30) == 0); /* finger moved right, not far enough yet */
+    CHECK(drag_steps(&acc, -40) == 1); /* 70 px right: one step right */
+    CHECK(drag_steps(&acc, -130) == 2);
+    CHECK(drag_steps(&acc, 200) == -3); /* finger moved left */
+    acc = 0;
+    CHECK(drag_steps(&acc, 59) == 0 && drag_steps(&acc, 1) == -1);
+}
+
 int main(void) {
+    RUN(t_drag_steps);
     RUN(t_tap_release_counts_as_action);
     RUN(t_buttons_edge);
     RUN(t_button_actions);

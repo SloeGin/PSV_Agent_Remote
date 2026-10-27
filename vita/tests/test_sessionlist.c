@@ -175,12 +175,34 @@ static void t_dialog_only_switches_horizontally(void) {
     model_free(&m);
 }
 
+static void t_confirm_drag_sideways(void) {
+    Model m;
+    three_sessions(&m);
+    SessionList l;
+    list_open(&l, &m);
+    Actions a = A();
+    a.square = true;
+    list_handle(&l, &m, &a, 1000, NULL);
+    a = A();
+    a.touch_pan_px = -70; /* finger moved right (either panel): Remove */
+    list_handle(&l, &m, &a, 1100, NULL);
+    CHECK(l.confirming && l.confirm_sel == 1);
+    a.touch_pan_px = -70; /* further right stays on Remove */
+    list_handle(&l, &m, &a, 1200, NULL);
+    CHECK(l.confirm_sel == 1);
+    a.touch_pan_px = 70; /* back left: Keep */
+    list_handle(&l, &m, &a, 1300, NULL);
+    CHECK(l.confirm_sel == 0);
+    model_free(&m);
+}
+
 int main(void) {
     RUN(t_dialog_only_switches_horizontally);
     RUN(t_remove_targets_the_confirmed_session);
     RUN(t_remove_rechecks_waiting);
     RUN(t_open_switch_close);
     RUN(t_remove_needs_confirmation);
+    RUN(t_confirm_drag_sideways);
     RUN(t_cancel_and_blocked);
     RUN(t_cursor_clamped_after_removal);
     return TEST_RESULT();

@@ -132,3 +132,11 @@ bool actions_any(const Actions *a) {
     return a->session_dir || a->scroll_lines || a->sel_dir || a->confirm || a->square || a->toggle_mode || a->sessions ||
            a->settings || a->back || a->quit || a->tap || a->pan_px || a->table_dir || a->touch_pan_px;
 }
+
+int drag_steps(int *acc, int pan_px) {
+    if ((pan_px > 0 && *acc > 0) || (pan_px < 0 && *acc < 0)) *acc = 0; /* turned back: count afresh */
+    *acc -= pan_px; /* the finger moving right moves the highlight right */
+    int steps = *acc / DRAG_STEP_PX;
+    *acc -= steps * DRAG_STEP_PX;
+    return steps;
+}

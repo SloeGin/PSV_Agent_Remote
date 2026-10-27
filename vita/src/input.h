@@ -79,6 +79,10 @@ void input_set_front_enabled(InputState *s, bool on);
  * panel, but a highlight follows the finger on the back the other way round:
  * finger up on the rear panel moves it up, as if pointing through the Vita. */
 int actions_cursor_lines(const Actions *a);
+/* A sideways touch drag (touch_pan_px, + = finger moved left) as steps along a row
+ * of buttons, one per DRAG_STEP_PX; + = right. *acc carries the remainder. */
+#define DRAG_STEP_PX 60
+int drag_steps(int *acc, int pan_px);
 
 /* True if the frame produced anything to act on (a tap fires on a frame with no input). */
 bool actions_any(const Actions *a);

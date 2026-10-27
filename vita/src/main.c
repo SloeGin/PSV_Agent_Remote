@@ -340,7 +340,7 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
     if (s && !decision && (idle || working) && s->reply.drawer == RD_OPEN) {
         Reply *rp = &s->reply;
         ReplyLayout l = reply_layout(rp, idle, working);
-        int dx = a->sel_dir + reply_drag_steps(&app->reply_drag_acc, a->touch_pan_px);
+        int dx = a->sel_dir + drag_steps(&app->reply_drag_acc, a->touch_pan_px);
         reply_move(rp, &l, actions_cursor_lines(a), dx);
         bool press = a->confirm;
         if (a->tap) {

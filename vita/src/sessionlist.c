@@ -17,8 +17,10 @@ ListResult list_handle(SessionList *l, Model *m, const Actions *a, uint64_t now,
     int step = lines ? lines : a->sel_dir;
 
     if (l->confirming) {
+        int steps = drag_steps(&l->drag_acc, a->touch_pan_px);
         if (a->back) l->confirming = false;
         else if (a->sel_dir) l->confirm_sel = !l->confirm_sel; /* Keep / Remove sit side by side */
+        else if (steps) l->confirm_sel = steps > 0; /* drag right: Remove, left: Keep */
         else if (a->confirm && now - l->confirm_at >= LOCKOUT_MS) {
             l->confirming = false;
             if (l->confirm_sel != 1) return LIST_NONE;
@@ -62,6 +64,7 @@ ListResult list_handle(SessionList *l, Model *m, const Actions *a, uint64_t now,
         }
         l->confirming = true;
         l->confirm_sel = 0;
+        l->drag_acc = 0;
         l->confirm_at = now;
         snprintf(l->confirm_sid, sizeof l->confirm_sid, "%s", s->sid);
     }

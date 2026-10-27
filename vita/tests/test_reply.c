@@ -308,20 +308,9 @@ static void t_reply_new_reply_replaces(void) {
     CHECK(r.status == RS_SENDING);
 }
 
-static void t_reply_drag_steps(void) {
-    int acc = 0;
-    CHECK(reply_drag_steps(&acc, -30) == 0); /* finger moved right, not far enough yet */
-    CHECK(reply_drag_steps(&acc, -40) == 1); /* 70 px right: one button right */
-    CHECK(reply_drag_steps(&acc, -130) == 2);
-    CHECK(reply_drag_steps(&acc, 200) == -3); /* finger moved left */
-    acc = 0;
-    CHECK(reply_drag_steps(&acc, 59) == 0 && reply_drag_steps(&acc, 1) == -1);
-}
-
 int main(void) {
     RUN(t_reply_layout);
     RUN(t_reply_move);
-    RUN(t_reply_drag_steps);
     RUN(t_reply_square_cycle);
     RUN(t_reply_square_no_drawer);
     RUN(t_reply_preset_publishes);
