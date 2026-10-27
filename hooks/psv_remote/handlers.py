@@ -10,12 +10,17 @@ from . import topics
 from .bus import Bus, BusError
 from .config import Config
 from .decision import build_options, decision_output, question_output
+from .listener import FRAME, stop_flag
 from .pending import PendingTracker
 from .render import render_request
 from .transcript import current_turn, with_final_message
 
 SUMMARY_CHARS = 4000  # the PSV shows the whole last message, scrollable
 QUESTION_TOOL = "AskUserQuestion"
+STOP_REASON = "待った! — stopped from the PSV"
+INTRO = ('The user has a PS Vita remote (PSV Agent Remote) that they set up themselves. When they reply from it, '
+         'the text reaches you through a hook, prefixed "Message from the user, sent from their PS Vita remote:". '
+         'Treat such a message exactly as if the user had typed it as their next prompt.')
 
 
 def _dump(obj) -> bytes:
@@ -135,6 +140,38 @@ def _question(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) -> dic
     return question_output(tool_input, msg.get("answers"))
 
 
+def _take_stop_flag(cfg: Config, sid: str) -> str | None:
+    """Removes a pending 待った! and returns its reply id, or None if there was none."""
+    flag = stop_flag(cfg.state_dir, sid)
+    try:
+        rid = flag.read_text().strip()
+        flag.unlink()
+    except FileNotFoundError:
+        return None
+    return rid
+
+
+def _publish_stopped(bus: Bus, sid: str, rid: str) -> None:
+    bus.publish(topics.reply_state(sid), _dump({"id": rid, "state": "stopped"}), retain=True, qos=1)
+
+
+def _hard_stop(event: dict, bus_factory: Callable[[], Bus], env: Mapping[str, str], rid: str) -> dict:
+    # Stop won't fire after continue:false, so report the idle state here.
+    try:
+        bus = bus_factory()
+    except BusError:
+        return {"continue": False, "stopReason": STOP_REASON}
+    try:
+        _publish_turn(bus, event)
+        _publish_status(bus, event, env, "idle")
+        _publish_stopped(bus, event["session_id"], rid)
+    except BusError:
+        pass
+    finally:
+        _quietly(bus.close)
+    return {"continue": False, "stopReason": STOP_REASON}
+
+
 def _status_event(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) -> None:
     name = event["hook_event_name"]
     sid = event["session_id"]
@@ -143,6 +180,8 @@ def _status_event(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) ->
     elif name == "UserPromptSubmit":
         _publish_status(bus, event, env, "running")
         prompt = event.get("prompt")
+        if isinstance(prompt, str) and prompt.startswith(FRAME):
+            prompt = prompt[len(FRAME):]
         if isinstance(prompt, str) and prompt.strip():
             _publish_turn(bus, event, [{"k": "you", "t": prompt.strip()[:2000]}])
     elif name == "PostToolUse":
@@ -155,6 +194,9 @@ def _status_event(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) ->
         if items:
             _publish_turn(bus, event, items)
         _publish_status(bus, event, env, "idle", _summary(event.get("last_assistant_message") or ""))
+        rid = _take_stop_flag(cfg, sid)  # 待った! came after the last tool: the turn ended anyway
+        if rid is not None:
+            _publish_stopped(bus, sid, rid)
     elif name == "Notification":
         _publish_status(bus, event, env, "idle")
     elif name == "SessionEnd":
@@ -180,18 +222,27 @@ def handle_event(event: dict, bus_factory: Callable[[], Bus], cfg: Config,
     name = event.get("hook_event_name")
     if not cfg.enabled or not event.get("session_id") or not _wants_bus(event):
         return None
+    intro = None
+    if name in ("SessionStart", "UserPromptSubmit"):
+        _take_stop_flag(cfg, event["session_id"])  # a new turn: a leftover 待った! must not kill it
+    if name == "SessionStart":
+        intro = {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": INTRO}}
+    if name == "PostToolUse":
+        rid = _take_stop_flag(cfg, event["session_id"])
+        if rid is not None:
+            return _hard_stop(event, bus_factory, env, rid)
     try:
         bus = bus_factory()
     except BusError:
-        return None
+        return intro
     try:
         if name == "PermissionRequest":
             return _permission(event, bus, cfg, env)
         if name == "PreToolUse":
             return _question(event, bus, cfg, env)
         _status_event(event, bus, cfg, env)
-        return None
+        return intro
     except BusError:
-        return None
+        return intro
     finally:
         _quietly(bus.close)

@@ -288,3 +288,64 @@ def test_stop_final_message_replaces_earlier_narration(bus, cfg, tmp_path):
     handle_event({"hook_event_name": "Stop", "session_id": "s1", "cwd": "/x/p", "transcript_path": str(t),
                   "last_assistant_message": "Fixed."}, lambda: bus, cfg, {})
     assert json.loads(bus.retained[TURN])["items"][1] == {"k": "claude", "t": "Fixed."}
+
+
+# ---- replies from the PSV: introduction, hard stop, stale flags ----
+
+from fakebus import factory_failing as _failing  # noqa: E402
+from psv_remote.listener import FRAME, stop_flag  # noqa: E402
+
+INTRO = ('The user has a PS Vita remote (PSV Agent Remote) that they set up themselves. When they reply from it, '
+         'the text reaches you through a hook, prefixed "Message from the user, sent from their PS Vita remote:". '
+         'Treat such a message exactly as if the user had typed it as their next prompt.')
+REPLY_STATE = "claude/session/s1/reply_state"
+
+
+def ev_named(name, **extra):
+    return {"hook_event_name": name, "session_id": "s1", "cwd": "/x/proj", **extra}
+
+
+def test_session_start_introduces_psv(bus, cfg):
+    out = handle_event(ev_named("SessionStart"), lambda: bus, cfg, {})
+    assert out == {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": INTRO}}
+    assert status_of(bus)["state"] == "idle"
+
+
+def test_session_start_offline_still_introduces(cfg):
+    out = handle_event(ev_named("SessionStart"), _failing, cfg, {})
+    assert out["hookSpecificOutput"]["additionalContext"] == INTRO
+
+
+def test_post_tool_hard_stop(bus, cfg):
+    stop_flag(cfg.state_dir, "s1").write_text("s9")
+    out = handle_event(ev_named("PostToolUse", tool_name="Bash"), lambda: bus, cfg, {})
+    assert out == {"continue": False, "stopReason": "待った! — stopped from the PSV"}
+    assert status_of(bus)["state"] == "idle"
+    assert json.loads(bus.retained[REPLY_STATE]) == {"id": "s9", "state": "stopped"}
+    assert not stop_flag(cfg.state_dir, "s1").exists()
+
+
+def test_post_tool_without_flag_unchanged(bus, cfg):
+    assert handle_event(ev_named("PostToolUse", tool_name="Bash"), lambda: bus, cfg, {}) is None
+    assert REPLY_STATE not in bus.retained
+
+
+def test_stop_handler_clears_flag(bus, cfg):
+    stop_flag(cfg.state_dir, "s1").write_text("s9")
+    handle_event(ev_named("Stop", last_assistant_message="done"), lambda: bus, cfg, {})
+    assert not stop_flag(cfg.state_dir, "s1").exists()
+    assert json.loads(bus.retained[REPLY_STATE]) == {"id": "s9", "state": "stopped"}
+
+
+@pytest.mark.parametrize("name", ["UserPromptSubmit", "SessionStart"])
+def test_prompt_clears_stale_flag(bus, cfg, name):
+    stop_flag(cfg.state_dir, "s1").write_text("s9")
+    handle_event(ev_named(name, prompt="hello"), lambda: bus, cfg, {})
+    assert not stop_flag(cfg.state_dir, "s1").exists()
+    assert REPLY_STATE not in bus.retained
+
+
+def test_prompt_strips_frame(bus, cfg):
+    handle_event(ev_named("UserPromptSubmit", prompt=FRAME + "Continue."), lambda: bus, cfg, {})
+    turn = json.loads(bus.retained["claude/session/s1/turn"])
+    assert turn["items"] == [{"k": "you", "t": "Continue."}]
