@@ -121,3 +121,85 @@ def test_empty_or_junk_reply_ignored(bus, lis):
     for junk in (b"", b"{", b"[]", rp("", "text", "x"), rp("a", "dance", "x"), rp("a", "text")):
         assert lis.on_reply(junk) is None
     assert bus.published == []
+
+
+# ---- run(): the loop around Listener ----
+
+from psv_remote.bus import BusError  # noqa: E402
+from psv_remote.config import Config  # noqa: E402
+from psv_remote.listener import run  # noqa: E402
+
+STATUS = topics.status(SID)
+
+
+def cfg_for(tmp_path):
+    return Config(state_dir=tmp_path)
+
+
+def pid_file(tmp_path):
+    return tmp_path / f"{SID}.listener"
+
+
+def test_run_delivers_from_inbox(tmp_path):
+    bus = FakeBus()
+    bus.retained[STATUS] = st("idle")
+    bus.retained[REPLY] = rp("a", "text", "Continue.")
+    assert run(lambda: bus, SID, cfg_for(tmp_path), 4242, deadline=1e9, sleep=lambda s: None) == FRAME + "Continue."
+    assert pid_file(tmp_path).read_text() == "4242"
+
+
+def test_retires_when_pid_changes(tmp_path):
+    bus = FakeBus()
+    calls = []
+
+    def clock():
+        calls.append(1)
+        if len(calls) == 3:
+            pid_file(tmp_path).write_text("999")  # a newer listener took over
+        return 0.0
+
+    assert run(lambda: bus, SID, cfg_for(tmp_path), 4242, deadline=1e9, clock=clock, sleep=lambda s: None) is None
+    assert len(calls) < 10
+
+
+def test_run_stops_at_deadline(tmp_path):
+    bus = FakeBus()
+    assert run(lambda: bus, SID, cfg_for(tmp_path), 1, deadline=5.0, clock=lambda: 6.0, sleep=lambda s: None) is None
+
+
+def test_session_end_stops_listener(tmp_path):
+    bus = FakeBus()
+    bus.inbox.append((STATUS, b""))
+    assert run(lambda: bus, SID, cfg_for(tmp_path), 1, deadline=1e9, sleep=lambda s: None) is None
+
+
+class DroppingBus(FakeBus):
+    def next_message(self, timeout_s):
+        raise BusError("disconnected")
+
+
+def test_reconnects_after_bus_error(tmp_path):
+    good = FakeBus()
+    good.retained[STATUS] = st("idle")
+    good.retained[REPLY] = rp("a", "text", "x")
+    buses = [DroppingBus(), good]
+    naps = []
+
+    def factory():
+        return buses.pop(0)
+
+    assert run(factory, SID, cfg_for(tmp_path), 1, deadline=1e9, sleep=naps.append) == FRAME + "x"
+    assert naps == [1]
+
+
+def test_unreachable_broker_waits_until_deadline(tmp_path):
+    t = [0.0]
+
+    def factory():
+        raise BusError("unreachable")
+
+    def sleep(s):
+        t[0] += s
+
+    assert run(factory, SID, cfg_for(tmp_path), 1, deadline=100.0, clock=lambda: t[0], sleep=sleep) is None
+    assert t[0] >= 100.0
