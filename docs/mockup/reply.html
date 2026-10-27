@@ -7,11 +7,21 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612; --line:#3a2f27; --line2:#2f2620; --tabon:#2e2520;
+  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612; --line:#3a2f27; --line2:#2f2620; --hintbg:#14100d; --brand:#ffb35c; --mode-sofa:#E87A90; --mode-desk:#2EA9DF; --you:#E87A90; --you-line:#61333C; --tabon:#2e2520;
   --text:#f1e6d6; --text2:#c9bba9; --muted:#9c8f80; --dim:#6b5a4a;
   --amber:#ffb35c; --amber-deep:#6b4a25; --teal:#5fc9b8; --teal-deep:#2d5b54; --rose:#ff7a6b;
   --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Space Grotesk','Noto Sans SC',sans-serif; --cjk:'Noto Sans SC',sans-serif;
 }
+.scr[data-agent="codex"]{
+  --bg:#0d1512; --panel:#111b17; --bar:#0f1e19; --sheet:#101915;
+  --line:#1f362d; --line2:#192b24; --tabon:#172b22; --hintbg:#0a130e;
+  --text:#e7f3ed; --text2:#bed3c7; --muted:#8da99a; --dim:#597466;
+  --brand:#10A37F;
+}
+.preview-controls{display:flex;justify-content:center;gap:10px;margin:0 0 22px}
+.preview-controls button{font:13px var(--sans);padding:8px 16px;background:#211a15;color:var(--text2);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.preview-controls button[aria-pressed="true"]{border-color:var(--amber);color:var(--text)}
+.scr[data-agent="codex"] .logo b{color:inherit}
 *{box-sizing:border-box}
 body{margin:0;background:#0d0a08;color:var(--text);font-family:var(--sans);padding:24px 16px 60px}
 h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4px;text-align:center}
@@ -25,7 +35,7 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .scr{width:960px;height:544px;background:var(--bg);position:relative;overflow:hidden;transform:scale(.75);transform-origin:top left;user-select:none}
 .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);z-index:40}
 .top{position:absolute;left:0;right:0;top:0;height:44px;background:var(--bar);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:6px;z-index:5}
-.logo{font:500 13px var(--mono);letter-spacing:2px;color:var(--amber);margin-right:12px;white-space:nowrap}
+.logo{font:500 13px var(--mono);letter-spacing:2px;color:var(--brand);margin-right:12px;white-space:nowrap}
 .logo b{color:var(--muted);font-weight:400}
 .tabs{display:flex;gap:4px;flex:1;min-width:0}
 .tab{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;font-size:15px;color:var(--muted);white-space:nowrap;border:1px solid transparent}
@@ -35,8 +45,9 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .dot.breathe{animation:breathe 1.6s ease-in-out infinite}
 @keyframes breathe{50%{opacity:.31}}
 .meta{display:flex;align-items:center;gap:10px;font:12px var(--mono);color:var(--muted);white-space:nowrap}
-.badge{font:500 11px var(--mono);letter-spacing:1px;border-radius:5px;padding:2px 7px;border:1px solid;color:var(--amber);border-color:var(--amber-deep)}
-.hints{position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line2);background:#14100d;z-index:20}
+.badge{font:500 11px var(--mono);letter-spacing:1px;border-radius:5px;padding:2px 7px;border:1px solid;color:var(--mode-sofa);border-color:var(--mode-sofa)}
+.badge.desk{color:var(--mode-desk);border-color:var(--mode-desk)}
+.hints{position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line2);background:var(--hintbg);z-index:20}
 .hints span{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .g{display:inline-block;width:14px;height:14px;vertical-align:-2px;flex:none}
 .lr{font:500 10px var(--mono);border:1px solid var(--dim);border-radius:3px;padding:0 4px;color:var(--text2)}
@@ -50,8 +61,8 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .turnbox{position:absolute;top:100px;left:16px;right:30px;bottom:38px;overflow:hidden}
 .item{margin:0 0 14px}
 .who{font:500 11px var(--mono);letter-spacing:1.5px;margin-bottom:3px}
-.who.you{color:var(--amber)} .who.claude{color:var(--teal)}
-.utext{font:17px/29px var(--cjk);color:var(--text);border-left:3px solid var(--amber-deep);padding-left:12px}
+.who.you{color:var(--you)} .who.claude{color:var(--brand)}
+.utext{font:17px/29px var(--cjk);color:var(--text);border-left:3px solid var(--you-line);padding-left:12px}
 .ctext{font:17px/29px var(--cjk);color:var(--text2)}
 .tool{font:14px/24px var(--mono);color:var(--muted);margin:-6px 0 12px}
 .tool b{color:var(--teal);font-weight:400}
@@ -114,6 +125,7 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 <body>
 <h1>AGENT//REMOTE · REPLY DRAWER</h1>
 <p class="sub">Mockups of the reply drawer, at 75% of the Vita's 960×544. Highlights show where the cursor is.</p>
+<div class="preview-controls" aria-label="Preview theme"><button data-theme="claude" aria-pressed="true">Warm theme</button><button data-theme="codex" aria-pressed="false">Green theme · #10A37F</button></div>
 <div class="grid" id="grid"></div>
 <div class="legend">
   <div class="card"><h2>Drawer rules</h2>
@@ -136,7 +148,7 @@ const dotFor = st => st==='idle' ? '<span class="dot ring"></span>'
 function topBar(state){
   return `<div class="top"><div class="logo">AGENT<b>//</b>REMOTE</div>
   <div class="tabs"><div class="tab on">${dotFor(state)}PSV_agent_remote</div><div class="tab">${dotFor('unseen')}api-server</div><div class="tab">${dotFor('idle')}notes</div></div>
-  <div class="meta"><span class="badge">SOFA</span><span>LINK</span><span style="color:var(--teal)">82%</span></div></div>`;
+  <div class="meta"><span class="badge sofa">SOFA</span><span>LINK</span><span style="color:var(--teal)">82%</span></div></div>`;
 }
 function head(state){
   return state==='idle'
@@ -145,7 +157,7 @@ function head(state){
 }
 function turn(state, extra=''){
   const claude = state==='idle'
-    ? `<div class="item"><div class="who claude">CLAUDE</div><div class="ctext">Added the battery indicator and the auto mode switch. Host tests pass and the VPK builds without warnings. I haven't checked it on the PSV.</div></div>`
+    ? `<div class="item"><div class="who claude">AGENT</div><div class="ctext">Added the battery indicator and the auto mode switch. Host tests pass and the VPK builds without warnings. I haven't checked it on the PSV.</div></div>`
     : `<div class="tool"><b>Bash</b> make -C vita/tests</div><div class="tool"><b>Edit</b> vita/src/ui.c</div><div class="tool"><b>Bash</b> cmake --build vita/build</div>`;
   return `<div class="turnbox"><div class="item"><div class="who you">YOU</div><div class="utext">Add a battery indicator to the top right, with a charging bolt.</div></div>${claude}${extra}</div>`;
 }
@@ -162,14 +174,14 @@ const PLAIN_H = [['s','Reply'],['L-STICK','Scroll'],['L/R','Session'],['SELECT',
 
 const frames = [
  {cap:'1 · Idle, □ pressed', note:'Presets on top of the idle turn. Nothing is highlighted until you move; then ✕ sends.', state:'idle',
-  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to Claude','<span>'+G.s+'</span>Close')}<div class="rows">${row('Continue',true)}${row('Verify it further')}${row('Type…',false,'','⌨ keyboard')}</div></div>`,
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to agent','<span>'+G.s+'</span>Close')}<div class="rows">${row('Continue',true)}${row('Verify it further')}${row('Type…',false,'','⌨ keyboard')}</div></div>`,
   hints: IDLE_H},
  {cap:'2 · Type… opens the Vita keyboard', note:'System keyboard. Closing it does not send: you go back to the drawer with the text kept.', state:'idle',
-  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to Claude','')}<div class="rows">${row('Continue')}${row('Verify it further')}${row('Type…',true)}</div></div>
-  <div class="ime"><div class="box"><div class="lab">Reply to Claude</div><div class="field">also show the percentage when charging<span class="caret"></span></div></div><div class="kbd">${'<i></i>'.repeat(44)}</div></div>`,
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to agent','')}<div class="rows">${row('Continue')}${row('Verify it further')}${row('Type…',true)}</div></div>
+  <div class="ime"><div class="box"><div class="lab">Reply to agent</div><div class="field">also show the percentage when charging<span class="caret"></span></div></div><div class="kbd">${'<i></i>'.repeat(44)}</div></div>`,
   hints: IDLE_H},
  {cap:'3 · Back from the keyboard, with a draft', note:'Presets stay as rows; the draft and its own Send · Edit · Discard sit together in one box at the bottom. ←/→ move between the three.', state:'idle',
-  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to Claude','<span>'+G.s+'</span>Fold')}
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Reply to agent','<span>'+G.s+'</span>Fold')}
    <div class="rows">${row('Continue')}${row('Verify it further')}${dblock('DRAFT','also show the percentage when charging',[{t:'Send',c:'sel'},{t:'Edit'},{t:'Discard'}])}</div></div>`,
   hints: [['s','Fold'],['x','Choose'],['o','Fold'],['L-STICK','Move']]},
  {cap:'4 · □ folds it: a one-line peek, like a hidden decision', note:'The turn view stays readable and scrollable. □ opens the drawer again.', state:'idle',
@@ -180,10 +192,10 @@ const frames = [
   hints: PLAIN_H, peekpad:true,
   turnextra: ''},
  {cap:'6 · Working, □ pressed', note:'待った! stops the agent after its current step, like Esc. Type… writes a reply that waits and goes in when the turn ends.', state:'working',
-  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Claude is working','<span>'+G.s+'</span>Close')}<div class="rows">${row('待った!',true,'matta','stop now')}${row('Type…',false,'','⌨ keyboard')}</div></div>`,
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Agent is working','<span>'+G.s+'</span>Close')}<div class="rows">${row('待った!',true,'matta','stop now')}${row('Type…',false,'','⌨ keyboard')}</div></div>`,
   hints: IDLE_H},
  {cap:'7 · Working, a typed reply sent', note:'It waits on the Mac and goes in the moment the turn ends. Edit reopens the keyboard and re-queues it; Discard withdraws it.', state:'working',
-  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Claude is working','<span>'+G.s+'</span>Fold')}
+  body: `<div class="scrim"></div><div class="drawer open">${peek('REPLY','Agent is working','<span>'+G.s+'</span>Fold')}
    <div class="rows">${row('待った!',false,'matta','stop now')}${dblock('QUEUED · SENDS WHEN THIS TURN ENDS','use the amber color for the low battery state too',[{t:'Edit',c:'sel'},{t:'Discard'}],true)}</div></div>`,
   hints: [['s','Fold'],['x','Choose'],['o','Fold'],['L-STICK','Move']]},
  {cap:'8 · 待った! pressed', note:'Stopping… until the current step finishes; then Stopped and the tab goes idle (gray ring).', state:'working',
@@ -204,8 +216,12 @@ document.getElementById('grid').innerHTML = frames.map(f=>{
   if (f.cap.startsWith('5')) t = `<div class="turnbox"><div class="item"><div class="who you">YOU · FROM PSV</div><div class="utext">also show the percentage when charging</div></div><div class="tool"><b>Read</b> vita/src/ui.c</div></div>`;
   if (f.peekpad) t = t.replace('class="turnbox"','class="turnbox" style="bottom:84px"');
   return `<div class="frame"><div class="cap">${f.cap}</div><div class="note">${f.note}</div>
-  <div class="fit"><div class="scr">${topBar(f.state==='waiting'?'waiting':tb)}${head(tb)}${t}${f.body}${hints(f.hints)}<div class="scan"></div></div></div></div>`;
+  <div class="fit"><div class="scr" data-agent="claude">${topBar(f.state==='waiting'?'waiting':tb)}${head(tb)}${t}${f.body}${hints(f.hints)}<div class="scan"></div></div></div></div>`;
 }).join('');
+document.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{
+  document.querySelectorAll('.scr').forEach(screen=>screen.dataset.agent=button.dataset.theme);
+  document.querySelectorAll('[data-theme]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));
+});
 </script>
 </body>
 </html>

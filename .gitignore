@@ -5,3 +5,6 @@ vita/build/
 .superpowers/
 *.psp2dmp
 debug.log
+
+.vscode
+.claude

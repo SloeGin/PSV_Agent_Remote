@@ -7,11 +7,18 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612; --line:#3a2f27; --line2:#2f2620;
+  --bg:#17120f; --panel:#1e1814; --bar:#211a15; --sheet:#1c1612; --line:#3a2f27; --line2:#2f2620; --tabon:#2e2520; --hintbg:#14100d; --brand:#ffb35c; --mode-sofa:#E87A90; --mode-desk:#2EA9DF; --you:#E87A90; --you-line:#61333C;
   --text:#f1e6d6; --text2:#c9bba9; --muted:#9c8f80; --dim:#6b5a4a;
   --amber:#ffb35c; --amber-deep:#6b4a25; --teal:#5fc9b8; --teal-deep:#2d5b54; --rose:#ff7a6b;
   --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Space Grotesk','Noto Sans SC',sans-serif; --cjk:'Noto Sans SC',sans-serif;
 }
+.scr[data-agent="codex"]{
+  --bg:#0d1512; --panel:#111b17; --bar:#0f1e19; --sheet:#101915;
+  --line:#1f362d; --line2:#192b24; --tabon:#172b22; --hintbg:#0a130e;
+  --text:#e7f3ed; --text2:#bed3c7; --muted:#8da99a; --dim:#597466;
+  --brand:#10A37F;
+}
+.scr[data-agent="codex"] .logo b{color:inherit}
 *{box-sizing:border-box}
 body{margin:0;background:#0d0a08;color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px}
 h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4px}
@@ -23,21 +30,21 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);z-index:40}
 /* top bar */
 .top{position:absolute;left:0;right:0;top:0;height:44px;background:var(--bar);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:6px;z-index:5}
-.logo{font:500 13px var(--mono);letter-spacing:2px;color:var(--amber);margin-right:12px;white-space:nowrap}
+.logo{font:500 13px var(--mono);letter-spacing:2px;color:var(--brand);margin-right:12px;white-space:nowrap}
 .logo b{color:var(--muted);font-weight:400}
 .tabs{display:flex;gap:4px;overflow:hidden;flex:1;min-width:0}
 .tab{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;font-size:15px;color:var(--muted);white-space:nowrap;border:1px solid transparent}
-.tab.on{background:#2e2520;color:var(--text);border-color:var(--line)}
+.tab.on{background:var(--tabon);color:var(--text);border-color:var(--line)}
 .dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
 .dot.ring{background:transparent;border:2px solid currentColor}
 .flash .dot{animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:.15}}
 .meta{display:flex;align-items:center;gap:10px;font:12px var(--mono);color:var(--muted);white-space:nowrap}
 .badge{font:500 11px var(--mono);letter-spacing:1px;border-radius:5px;padding:2px 7px;border:1px solid}
-.badge.sofa{color:var(--amber);border-color:var(--amber-deep)} .badge.desk{color:var(--teal);border-color:var(--teal-deep)}
+.badge.sofa{color:var(--mode-sofa);border-color:var(--mode-sofa)} .badge.desk{color:var(--mode-desk);border-color:var(--mode-desk)}
 .net{display:flex;align-items:center;gap:6px}
 /* hint strip */
-.hints{position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line2);background:#14100d;z-index:20}
+.hints{position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line2);background:var(--hintbg);z-index:20}
 .hints span{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .hints .r{margin-left:auto}
 .g{display:inline-block;width:14px;height:14px;vertical-align:-2px;flex:none}
@@ -55,8 +62,8 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .turn{position:absolute;left:0;right:0;top:0;transition:transform .12s}
 .item{margin:0 0 14px}
 .who{font:500 11px var(--mono);letter-spacing:1.5px;margin-bottom:3px}
-.who.you{color:var(--amber)} .who.claude{color:var(--teal)}
-.utext{font:17px/29px var(--cjk);color:var(--text);border-left:3px solid var(--amber-deep);padding-left:12px}
+.who.you{color:var(--you)} .who.claude{color:var(--brand)}
+.utext{font:17px/29px var(--cjk);color:var(--text);border-left:3px solid var(--you-line);padding-left:12px}
 .ctext{font:17px/29px var(--cjk);color:var(--text2);white-space:pre-wrap}
 .tool{font:14px/24px var(--mono);color:var(--muted);margin:-6px 0 12px}
 .tool b{color:var(--teal);font-weight:400}
@@ -91,7 +98,7 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .qlist{position:absolute;top:58px;left:14px;right:14px;bottom:10px;overflow:hidden}
 .qrow{display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:9px;border:1px solid transparent;margin-bottom:4px}
 .qinner{position:absolute;left:0;right:0;top:0;transition:transform .12s}
-.qrow.on{background:#2e2520;border-color:var(--line)}
+.qrow.on{background:var(--tabon);border-color:var(--line)}
 .qrow .lab{font-size:17px;color:var(--text)}
 .qrow .desc{font-size:13px;color:var(--muted);margin-top:2px}
 .qrow .box{width:18px;height:18px;border:2px solid var(--dim);border-radius:4px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--bg);font:700 12px var(--mono)}
@@ -106,7 +113,7 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .review .r .h{font:500 11px var(--mono);letter-spacing:1px;color:var(--muted);width:120px;flex:none;padding-top:4px}
 /* overlays */
 .banner{position:absolute;left:16px;right:16px;top:52px;height:44px;border-radius:9px;background:#1f2d29;border:1px solid var(--teal-deep);display:flex;align-items:center;gap:10px;padding:0 14px;font-size:15px;z-index:25;animation:drop .2s}
-.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;background:#2e2520;border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:14px;z-index:25;white-space:nowrap}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;background:var(--tabon);border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:14px;z-index:25;white-space:nowrap}
 @keyframes drop{from{transform:translateY(-10px);opacity:0}}
 .cursor{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(241,230,214,.85);border-radius:50%;z-index:30;pointer-events:none}
 .cursor::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:var(--text);border-radius:50%}
@@ -120,12 +127,12 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .set-h{position:absolute;top:56px;left:16px;font:500 11px var(--mono);letter-spacing:2px;color:var(--muted)}
 .rows{position:absolute;top:80px;left:16px;right:16px}
 .row{height:44px;display:flex;align-items:center;gap:12px;padding:0 14px;border-radius:8px;font-size:16px;color:var(--text2)}
-.row.on{background:#2e2520;color:var(--text);outline:1px solid var(--line)}
+.row.on{background:var(--tabon);color:var(--text);outline:1px solid var(--line)}
 .row .tag{margin-left:auto;font:12px var(--mono)} .row .val{margin-left:auto;font:13px var(--mono);color:var(--amber)}
 .sep{height:1px;background:var(--line2);margin:8px 0}
 /* session list */
 .lrow{display:flex;align-items:center;gap:14px;height:58px;padding:0 14px;border-radius:9px;border:1px solid transparent;margin-bottom:4px}
-.lrow.on{background:#2e2520;border-color:var(--line)}
+.lrow.on{background:var(--tabon);border-color:var(--line)}
 .lrow .nm{font-size:17px;color:var(--text)}
 .lrow .cw{font:11px var(--mono);color:var(--dim);margin-top:2px}
 .lrow .st{margin-left:auto;font:12px var(--mono);color:var(--muted);text-align:right}
@@ -137,6 +144,15 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:var(--amber);margin:0 0 4p
 .modal .b{flex:1;height:42px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;color:var(--text2);position:relative;overflow:hidden}
 .modal .b.sel{background:var(--amber);border-color:var(--amber);color:var(--bg)}
 .modal .b.sel.danger{background:var(--rose);border-color:var(--rose)}
+.agent-icon{width:24px;height:24px;flex:none;display:block}
+.agent-icon.claude{color:#d9a180}.agent-icon.codex{color:#10A37F}
+.cap-tooltip{position:absolute;inset:44px 0 30px;background:rgba(5,12,8,.72);z-index:29;display:flex;align-items:center;justify-content:center}
+.cap-tooltip .box{width:610px;padding:22px 26px;background:var(--bar);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 60px #0008}
+.cap-tooltip .title{font-size:22px;margin-bottom:4px}.cap-tooltip .intro{color:var(--muted);font-size:13px;line-height:20px;margin-bottom:14px}
+.cap-row{display:flex;align-items:center;gap:16px;padding:9px 0;border-top:1px solid var(--line2)}
+.cap-row .name{width:100px;font-size:15px}.cap-row .desc{flex:1;font-size:13px;color:var(--text2)}
+.cap-row .value{font:11px var(--mono);color:var(--teal)}.cap-row .value.unknown{color:var(--muted)}
+.cap-tooltip .dismiss{font:11px var(--mono);letter-spacing:1px;color:var(--muted);margin-top:16px}
 /* side panel */
 .sidep{width:360px;font-size:13px;color:var(--text2)}
 .card{background:#15110e;border:1px solid #2a221d;border-radius:12px;padding:14px 16px;margin-bottom:14px}
@@ -193,7 +209,7 @@ kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-rad
         <button data-sim="q1">Question (single)</button>
         <button data-sim="q2">Questions (2, multi)</button>
         <button data-sim="other">Approval in other session</button>
-        <button data-sim="say">Claude says more</button>
+        <button data-sim="say">Agent says more</button>
         <button data-sim="idle">Turn finishes</button>
         <button data-sim="expire">Expire pending</button>
         <button data-sim="clear">Answered on Mac</button>
@@ -202,7 +218,7 @@ kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-rad
         <button data-sim="none">No sessions</button>
         <button data-sim="reset">Reset demo</button>
       </div>
-      <p class="small" style="margin:10px 0 0">Decisions open as a sheet over this turn's conversation. □ hides it (one line stays at the bottom) and brings it back. While it's hidden, ✕ does nothing. Each time the sheet appears, ✕ is locked for 0.5 s and nothing is highlighted.</p>
+      <p class="small" style="margin:10px 0 0">Decisions open as a sheet over this turn's conversation. □ hides it (one line stays at the bottom) and brings it back. While it's hidden, ✕ does nothing. Each time the sheet appears, ✕ is locked for 0.5 s and nothing is highlighted.</p><p class="small">SELECT opens session edit mode. Agent icons appear only there; △ shows capabilities for the highlighted row. Any button dismisses the tooltip without acting. Open api-server (Codex) to preview the green theme. Capability values are illustrative.</p>
     </div>
     <div class="card">
       <h2>SCALE</h2>
@@ -220,7 +236,7 @@ const G = {
 };
 document.getElementById('kx').innerHTML = `${G.x} Cross — confirm`;
 document.getElementById('ko').innerHTML = `${G.o} Circle — back`;
-document.getElementById('kt').innerHTML = `${G.t} Triangle — desk / sofa mode`;
+document.getElementById('kt').innerHTML = `${G.t} Triangle — desk / sofa; in sessions: capabilities`;
 document.getElementById('ks').innerHTML = `${G.s} Square — hide / show the decision sheet`;
 document.getElementById('pads').innerHTML = ['t','s','x','o'].map(k=>`<div class="pad" data-pad="${k}">${G[k].replace('class="g"','')}</div>`).join('');
 
@@ -264,13 +280,13 @@ function reset(){
   nextRid = 1;
   S = {
     sessions:[
-      {sid:'a', project:'psv-remote', state:'waiting', turn:TURN_A.slice(), pending:[approval('Bash','rm -rf node_modules && npm ci', `rm -rf node_modules && npm ci && npm run build -- --mode=production
+      {sid:'a', agent:'claude', capabilities:{approval:true,questions:true,reply:true,stop:true}, project:'psv-remote', state:'waiting', turn:TURN_A.slice(), pending:[approval('Bash','rm -rf node_modules && npm ci', `rm -rf node_modules && npm ci && npm run build -- --mode=production
 <span class="c"># 清理依赖并重新安装，然后构建生产版本</span>`, '~/Workspace/fun-projects/PSV_agent_remote')], flash:false, since:now()},
-      {sid:'b', project:'api-server', state:'running', turn:TURN_B.slice(), pending:[], flash:false, since:now()},
-      {sid:'c', project:'notes', state:'idle', turn:TURN_C.slice(), pending:[], flash:false, since:now()-120000},
+      {sid:'b', agent:'codex', capabilities:{approval:true,questions:null,reply:null,stop:null}, project:'api-server', state:'running', turn:TURN_B.slice(), pending:[], flash:false, since:now()},
+      {sid:'c', agent:'claude', capabilities:{approval:true,questions:true,reply:true,stop:true}, project:'notes', state:'idle', turn:TURN_C.slice(), pending:[], flash:false, since:now()-120000},
     ],
     cur:0, sel:-1, shownKey:'', shownAt:now(), mode:'sofa', net:'up', scroll:0, sheetScroll:0, sheetHidden:false,
-    list:{open:false, cursor:0, confirm:null},
+    list:{open:false, cursor:0, confirm:null, tooltip:false},
     settings:{open:false, cursor:0, brokers:[{host:'192.168.2.222',port:1883},{host:'10.0.0.8',port:1883}], active:0, connected:0, sound:true, dim:5},
     ime:null, banner:null, toast:null, dimmed:false, cursor:null, lastInput:now(),
   };
@@ -342,7 +358,7 @@ function confirm(){
   if (now()-S.shownAt < LOCKOUT) return;
   if (r.kind==='approval'){
     const o=r.opts[S.sel];
-    if (o.id==='deny_note'){ S.ime={label:'NOTE FOR CLAUDE', placeholder:'Run the tests before deleting anything', value:'', onok:v=>finish(r,{...o, label:'Denied with note', note:v})}; return; }
+    if (o.id==='deny_note'){ S.ime={label:'NOTE FOR AGENT', placeholder:'Run the tests before deleting anything', value:'', onok:v=>finish(r,{...o, label:'Denied with note', note:v})}; return; }
     finish(r, o); return;
   }
   if (r.step==='review'){
@@ -373,7 +389,7 @@ function stateText(x){
   if (x.state==='waiting') return 'Waiting on your Mac';
   return 'Idle · ' + ago(x.since);
 }
-function openList(){ S.list={open:true, cursor:Math.max(0,S.cur), confirm:null}; }
+function openList(){ S.list={open:true, cursor:Math.max(0,S.cur), confirm:null, tooltip:false}; }
 function listPress(btn){
   const L=S.list, n=S.sessions.length;
   if (L.confirm){
@@ -394,7 +410,7 @@ function listPress(btn){
     if (x.pending.length||x.state==='waiting'){ toast('Answer its request first'); return; }
     L.confirm={sel:0, at:now()};
   }
-  else if (btn==='t') toggleMode();
+  else if (btn==='t' && n) L.tooltip=true;
 }
 /* settings */
 function setRows(){ return [...S.settings.brokers.map((x,i)=>({k:'broker',i})),{k:'add'},{k:'sound'},{k:'dim'},{k:'exit'}]; }
@@ -427,6 +443,7 @@ function imeOk(){
 }
 
 function press(btn){
+  if (S.list.tooltip){ S.list.tooltip=false; wake(); return render(); }
   if (wake()) return render();
   if (S.ime){ if(btn==='o') S.ime=null; else if(btn==='x') imeOk(); return render(); }
   if (S.list.open){ listPress(btn); return render(); }
@@ -463,7 +480,8 @@ function hintsHtml(){
   const tail = `<span class="r">${G.t} ${other} mode</span><span><span class="lr">START</span> Settings</span>`;
   if (S.ime) return `<div class="hints"><span>${G.x} OK</span><span>${G.o} Cancel</span></div>`;
   if (S.list.open && S.list.confirm) return `<div class="hints"><span>${G.x} Confirm</span><span><span class="lr">←→</span> Choose</span><span>${G.o} Cancel</span></div>`;
-  if (S.list.open) return `<div class="hints"><span>${G.x} Open</span><span><span class="lr">↑↓</span> Choose</span><span>${G.s} Remove</span><span>${G.o} Close</span></div>`;
+  if (S.list.tooltip) return `<div class="hints"><span>Press any button to close</span></div>`;
+  if (S.list.open) return `<div class="hints"><span>${G.x} Open</span><span><span class="lr">↑↓</span> Choose</span><span>${G.s} Remove</span><span>${G.o} Close</span><span class="r">${G.t} Capabilities</span></div>`;
   if (S.settings.open) return `<div class="hints"><span>${G.x} Select</span><span>${G.s} Remove broker</span><span>${G.o} Back</span><span class="r"><span class="lr">START</span> Close</span></div>`;
   const r=pend();
   if (r && !S.sheetHidden){
@@ -482,13 +500,36 @@ function headHtml(s){
 function turnHtml(s){
   return s.turn.map(it=> it.who==='tool'
     ? `<div class="tool"><b>▸</b> ${it.tool}  ${esc(it.text)}</div>`
-    : `<div class="item"><div class="who ${it.who}">${it.who==='you'?'YOU':'CLAUDE'}</div><div class="${it.who==='you'?'utext':'ctext'}">${esc(it.text)}</div></div>`).join('')
-    + (s.state==='waiting' && S.mode==='desk' ? `<div class="tool" style="color:var(--teal)">Desk mode is on, so Claude asked on your Mac. Press ${G.t} to send decisions here.</div>` : '');
+    : `<div class="item"><div class="who ${it.who}">${it.who==='you'?'YOU':'AGENT'}</div><div class="${it.who==='you'?'utext':'ctext'}">${esc(it.text)}</div></div>`).join('')
+    + (s.state==='waiting' && S.mode==='desk' ? `<div class="tool" style="color:var(--teal)">Desk mode is on, so the agent asked on your computer. Press ${G.t} to send decisions here.</div>` : '');
+}
+// Capability values are illustrative; Codex control paths still need integration validation.
+const CAPABILITIES = [
+  ['approval','Approvals','Read a request and allow or deny it.'],
+  ['questions','Questions','Choose options or type an answer.'],
+  ['reply','Replies','Send a message to continue an idle session.'],
+  ['stop','Stop','Ask the session to stop its current turn.'],
+];
+function agentIcon(agent){
+  const shape=agent==='codex'
+    ? Array.from({length:6},(_,i)=>`<path transform="rotate(${i*60} 12 12)" d="M12 3.5C16 1.5 20 5 18 9L12 12L8 9.7V5.3Z"/>`).join('')
+    : Array.from({length:12},(_,i)=>`<path transform="rotate(${i*30} 12 12)" d="M12 3v6"/>`).join('');
+  return `<svg class="agent-icon ${agent}" viewBox="0 0 24 24" role="img" aria-label="${agent==='codex'?'Codex':'Claude Code'}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${shape}</svg>`;
+}
+function capabilitiesHtml(){
+  const session=S.sessions[S.list.cursor];
+  if(!session) return '';
+  const codex=session.agent==='codex';
+  return `<div class="cap-tooltip" role="dialog" aria-modal="true" aria-label="Session capabilities"><div class="box">
+    <div class="title">${esc(session.project)} · Capabilities</div>
+    <div class="intro">${codex?'Codex':'Claude Code'} · Available controls for this session.</div>
+    ${CAPABILITIES.map(([key,label,desc])=>{const supported=session.capabilities[key]===true;return `<div class="cap-row"><span class="name">${label}</span><span class="desc">${desc}</span><span class="value ${supported?'':'unknown'}">${supported?'SUPPORTED':'UNVERIFIED'}</span></div>`;}).join('')}
+    <div class="dismiss">PRESS ANY BUTTON TO CLOSE</div></div></div>`;
 }
 function listHtml(){
   const rows = S.sessions.map((x,i)=>{
     const col=COLORS[x.state], ring=x.state==='idle' && !x.pending.length;
-    return `<div class="lrow ${i===S.list.cursor?'on':''}"><span class="dot${ring?' ring':''}" style="${ring?'color:'+col:'background:'+(x.pending.length?'var(--amber)':col)};width:11px;height:11px"></span>
+    return `<div class="lrow ${i===S.list.cursor?'on':''}" data-session="${i}">${agentIcon(x.agent)}<span class="dot${ring?' ring':''}" style="${ring?'color:'+col:'background:'+(x.pending.length?'var(--amber)':col)};width:11px;height:11px"></span>
       <div><div class="nm">${x.project}${i===S.cur?' <span style="font:11px var(--mono);color:var(--dim)">· showing</span>':''}</div><div class="cw">~/Workspace/${x.project}</div></div>
       <div class="st" style="${x.pending.length?'color:var(--amber)':''}">${stateText(x)}</div></div>`; }).join('');
   return `<div class="set-h">SESSIONS · ${S.sessions.length}</div><div class="rows">${rows || '<div class="row" style="color:var(--muted)">No sessions</div>'}</div>`;
@@ -505,7 +546,7 @@ function mainHtml(){
       return `<div class="sep"></div><div class="row ${on}" style="color:var(--rose)">Exit Agent Remote</div>`; }).join('');
     return `<div class="set-h">SETTINGS · MQTT BROKERS</div><div class="rows">${rows}</div>`;
   }
-  if (!S.sessions.length) return `<div class="empty"><div class="t1">No Claude sessions yet</div><div class="t2">Start Claude Code on your Mac and it shows up here. You’ll get a chime when it needs a decision.</div></div>`;
+  if (!S.sessions.length) return `<div class="empty"><div class="t1">No sessions yet</div><div class="t2">Connect an agent on your computer to see its sessions here. You’ll get a chime when it needs a decision.</div></div>`;
   const s=cur(), peek = !!pend();
   return headHtml(s) + `<div class="turnbox ${peek?'withpeek':''}"><div class="turn" style="transform:translateY(${-S.scroll*LINE}px)">${turnHtml(s)}</div></div><div class="sbar" id="tbar"><i></i></div>`;
 }
@@ -522,7 +563,7 @@ function peekHtml(r){
   return `${chip}<span class="ttl">${esc(title.split('\n')[0])}${S.sheetHidden?'…':''}</span><span class="side">${side}</span>`;
 }
 function sentNote(r){
-  return `<div class="opts"><div class="optnote">${G.x}<span>${r.sent.mac?'':'Sent · '}<b style="color:${r.sent.danger?'var(--rose)':'var(--amber)'};font-weight:500">${r.sent.label}</b></span><span style="color:var(--muted);font:12px var(--mono);margin-left:auto">${r.sent.mac?'answer it on your Mac':'waiting for Claude…'}</span></div></div>`;
+  return `<div class="opts"><div class="optnote">${G.x}<span>${r.sent.mac?'':'Sent · '}<b style="color:${r.sent.danger?'var(--rose)':'var(--amber)'};font-weight:500">${r.sent.label}</b></span><span style="color:var(--muted);font:12px var(--mono);margin-left:auto">${r.sent.mac?'answer it on your Mac':'waiting for agent…'}</span></div></div>`;
 }
 function armBar(i){ const t=now()-S.shownAt; return i===S.sel && t<LOCKOUT ? `<span class="arm" style="width:${100*t/LOCKOUT}%"></span>` : ''; }
 function sheetBody(r){
@@ -554,12 +595,13 @@ function sheetBody(r){
 }
 function overHtml(){
   const t=now(); let h='';
+  if (S.list.open && S.list.tooltip) h+=capabilitiesHtml();
   if (S.banner && t<S.banner.until) h+=`<div class="banner">${S.banner.html}</div>`;
   if (S.toast && t<S.toast.until) h+=`<div class="toast">${S.toast.msg}</div>`;
   if (S.list.open && S.list.confirm){
     const x=S.sessions[S.list.cursor], c=S.list.confirm, armed=now()-c.at>=LOCKOUT;
     const b=(i,l,d)=>`<div class="b ${c.sel===i?'sel':''} ${c.sel===i&&d?'danger':''}">${c.sel===i?G.x:''}${l}${c.sel===i&&!armed?`<span class="arm" style="width:${100*(now()-c.at)/LOCKOUT}%"></span>`:''}</div>`;
-    h+=`<div class="modal"><div class="box"><div class="t">Remove ${x.project} from the list?</div><div class="d">It comes back the next time Claude Code reports from that session. Nothing on your Mac changes.</div><div class="bs">${b(0,'Keep',false)}${b(1,'Remove',true)}</div></div></div>`;
+    h+=`<div class="modal"><div class="box"><div class="t">Remove ${x.project} from the list?</div><div class="d">It comes back the next time the agent reports from that session. Nothing on your computer changes.</div><div class="bs">${b(0,'Keep',false)}${b(1,'Remove',true)}</div></div></div>`;
   }
   if (S.ime) h+=`<div class="ime"><div class="box"><div class="lab">${S.ime.label}</div><input id="imein" value="${esc(S.ime.value)}" placeholder="${S.ime.placeholder}" style="${S.ime.mono?'font-family:var(--mono)':''}" spellcheck="false"><div class="h" style="${S.ime.err?'color:var(--rose)':''}">${S.ime.err||'The Vita system keyboard opens here.'}</div></div></div>`;
   if (S.cursor) h+=`<div class="cursor" style="left:${S.cursor.x}px;top:${S.cursor.y}px"></div>`;
@@ -577,6 +619,7 @@ function bar(id, el, scroll){
 let imeFocused=false;
 function render(){
   syncView();
+  $('scr').dataset.agent=cur()?.agent || 'claude';
   $('top').innerHTML = topHtml();
   $('main').innerHTML = mainHtml();
   const r = !S.settings.open && !S.list.open && pend();
@@ -594,8 +637,11 @@ function render(){
 setInterval(()=>{ if(S.settings.dim && now()-S.lastInput>S.settings.dim*60000) S.dimmed=true; if(!S.ime) render(); }, 100);
 
 /* ---------- inputs ---------- */
+let tooltipDismissKey=null;
 const KEYS={q:'L',e:'R',w:'lup',s:'ldown',arrowup:'up',arrowdown:'down',a:'left',arrowleft:'left',d:'right',arrowright:'right',k:'x',' ':'x',l:'o',escape:'o',i:'t',j:'s',h:'select',enter:'start'};
 addEventListener('keydown', e=>{
+  if(tooltipDismissKey===e.code){ e.preventDefault(); return; }
+  if(S.list.tooltip){ e.preventDefault(); tooltipDismissKey=e.code; press('dismiss'); return; }
   if (S.ime && e.target.id==='imein'){ if(e.key==='Enter'){ e.preventDefault(); press('x'); } else if(e.key==='Escape') press('o'); return; }
   const b=KEYS[e.key.toLowerCase()]; if(!b) return; e.preventDefault(); press(b);
 });
@@ -604,21 +650,21 @@ let scale=1, drag=null;
 const scr=$('scr');
 function toScreen(e){ const r=scr.getBoundingClientRect(); return {x:(e.clientX-r.left)/scale, y:(e.clientY-r.top)/scale}; }
 function optAt(e){ const o=document.elementsFromPoint(e.clientX,e.clientY).find(x=>x.dataset&&x.dataset.opt!==undefined); return o?+o.dataset.opt:-1; }
-scr.addEventListener('mousedown', e=>{ if(e.shiftKey) return; if(wake()) return render(); drag={...toScreen(e), moved:false}; });
+scr.addEventListener('mousedown', e=>{ if(S.list.tooltip){ press('dismiss'); return; } if(e.shiftKey) return; if(wake()) return render(); drag={...toScreen(e), moved:false}; });
 addEventListener('mousemove', e=>{
   const p=toScreen(e);
-  if (e.shiftKey && p.x>=0&&p.y>=0&&p.x<960&&p.y<544){
+  if (!S.list.tooltip && e.shiftKey && p.x>=0&&p.y>=0&&p.x<960&&p.y<544){
     wake(); S.cursor={x:Math.round(p.x),y:Math.round(p.y)};
     const i=optAt(e); if(i>=0 && live(pend()) && !S.sheetHidden) S.sel=i;
     return render();
   }
-  if (!drag) return;
+  if (S.list.tooltip || !drag) return;
   const dy=p.y-drag.y;
   if (!drag.moved && Math.abs(dy)>12){ drag.moved=true; drag.anchor=drag.y+(dy>0?12:-12); }
   if (drag.moved){ while(drag.anchor-p.y>=LINE){ scrollBy(1); drag.anchor-=LINE; } while(p.y-drag.anchor>=LINE){ scrollBy(-1); drag.anchor+=LINE; } render(); }
 });
-addEventListener('mouseup', e=>{ if(drag&&!drag.moved){ const i=optAt(e); if(i>=0 && live(pend()) && !S.sheetHidden){ S.sel=i; render(); } } drag=null; });
-addEventListener('keyup', e=>{ if(e.key==='Shift'&&S.cursor) setTimeout(()=>{ S.cursor=null; render(); },1000); });
+addEventListener('mouseup', e=>{ if(drag&&!drag.moved){ const row=e.target.closest('[data-session]'); if(S.list.open && !S.list.confirm && !S.list.tooltip && row){ S.list.cursor=+row.dataset.session; drag=null; return render(); } const i=optAt(e); if(i>=0 && live(pend()) && !S.sheetHidden){ S.sel=i; render(); } } drag=null; });
+addEventListener('keyup', e=>{ if(e.code===tooltipDismissKey) tooltipDismissKey=null; if(e.key==='Shift'&&S.cursor) setTimeout(()=>{ S.cursor=null; render(); },1000); });
 
 /* ---------- simulation ---------- */
 $('sims').onclick = e=>{
