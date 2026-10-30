@@ -355,3 +355,52 @@ def test_bad_command_is_ignored(tmp_path):
                  '{"cmd": "restore"}'):
         handle_command(cfg, "host", line, folders)  # no manager running, bad input: nothing raises
     assert folders == ["/keep"]
+
+
+def test_kiro_start_command_spawns_a_detached_bridge(tmp_path, monkeypatch):
+    import psv_remote.vscode_client as vc
+    spawned = []
+
+    class Proc:
+        pass
+
+    monkeypatch.setattr(vc.subprocess, "Popen", lambda args, **kw: spawned.append((args, kw)) or Proc())
+    cfg = Config(state_dir=tmp_path)
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_start", "cwd": "/p"}), [])
+    (args, kw), = spawned
+    assert args[1].endswith("psv_kiro.py") and args[2:] == ["--cwd", "/p", "--host-id", "host"]
+    assert kw["start_new_session"] is True and kw["stdin"] is vc.subprocess.DEVNULL  # outlives VS Code
+    key = kiro_registry.lock_key("host", "/p")
+    assert kw["stdout"].name == str(tmp_path / f"kiro-{key}.log")
+
+
+def test_kiro_start_skipped_when_already_running(tmp_path, monkeypatch):
+    import fcntl
+    import psv_remote.vscode_client as vc
+    spawned = []
+    monkeypatch.setattr(vc.subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    cfg = Config(state_dir=tmp_path)
+    key = kiro_registry.lock_key("host", "/p")
+    lock = (tmp_path / f"kiro-{key}.bridge.lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    kiro_registry.write_entry(tmp_path, key, 4242, "/p", "kiro-x")
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_start", "cwd": "/p"}), [])
+    assert spawned == []
+    lock.close()
+
+
+def test_kiro_stop_command_terminates_the_registered_bridge(tmp_path, monkeypatch):
+    import fcntl
+    import signal
+    import psv_remote.vscode_client as vc
+    killed = []
+    monkeypatch.setattr(vc.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+    cfg = Config(state_dir=tmp_path)
+    key = kiro_registry.lock_key("host", "/p")
+    lock = (tmp_path / f"kiro-{key}.bridge.lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    kiro_registry.write_entry(tmp_path, key, 4242, "/p", "kiro-x")
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_stop", "cwd": "/p"}), [])
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_stop", "cwd": "/not-running"}), [])
+    assert killed == [(4242, signal.SIGTERM)]
+    lock.close()

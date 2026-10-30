@@ -3,6 +3,7 @@
 import http.client
 import json
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -90,6 +91,32 @@ def kiro_status(cfg, host_id, folders) -> dict:
     return {"bridges": [{k: v for k, v in e.items() if k != "key"} for e in bridges], "errors": errors}
 
 
+def kiro_start(cfg, host_id, cwd) -> None:
+    """Start a Kiro bridge for cwd as its own session, so it outlives VS Code.
+
+    It inherits this process's environment (broker settings, and the launcher's
+    PYTHONPATH with the bundled libraries) and logs where the panel looks for errors.
+    """
+    if any(entry["cwd"] == cwd for entry in kiro_registry.entries(cfg.state_dir)):
+        return
+    entry = Path(__file__).resolve().parents[1] / "psv_kiro.py"
+    log_path = cfg.state_dir / f"kiro-{kiro_registry.lock_key(host_id, cwd)}.log"
+    cfg.state_dir.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "wb") as log:  # a fresh log: an old failure must not linger
+        subprocess.Popen([sys.executable, str(entry), "--cwd", cwd, "--host-id", host_id],
+                         stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+
+
+def kiro_stop(cfg, cwd) -> None:
+    """SIGTERM the Kiro bridge for cwd; it ends kiro-cli and clears its broker topics."""
+    for entry in kiro_registry.entries(cfg.state_dir):
+        if entry["cwd"] == cwd and isinstance(entry["pid"], int):
+            try:
+                os.kill(entry["pid"], signal.SIGTERM)
+            except OSError:
+                pass
+
+
 def handle_command(cfg, host_id, line, folders) -> None:
     """One JSON command from the extension; anything malformed is ignored."""
     try:
@@ -102,6 +129,10 @@ def handle_command(cfg, host_id, line, folders) -> None:
         paths = command.get("paths")
         if isinstance(paths, list) and all(isinstance(p, str) for p in paths):
             folders[:] = paths
+    elif command.get("cmd") == "kiro_start" and isinstance(command.get("cwd"), str):
+        kiro_start(cfg, host_id, command["cwd"])
+    elif command.get("cmd") == "kiro_stop" and isinstance(command.get("cwd"), str):
+        kiro_stop(cfg, command["cwd"])
     elif command.get("cmd") == "restore" and isinstance(command.get("sid"), str):
         try:
             request(cfg, host_id, "restore", sid=command["sid"])

@@ -49,6 +49,18 @@ class Client {
     this.python = python;
     this.child = null;
     this.generation = 0;
+    this.folders = [];
+  }
+
+  // Commands to the Python client, one JSON line each (it treats EOF as "this window left").
+  send(command) {
+    const child = this.child;
+    if (child && child.stdin && child.stdin.writable) child.stdin.write(`${JSON.stringify(command)}\n`);
+  }
+
+  setFolders(paths) {
+    this.folders = [...paths];
+    this.send({ cmd: 'folders', paths: this.folders });
   }
 
   async start(config, replace = false) {
@@ -66,6 +78,7 @@ class Client {
       child.stdout.setEncoding('utf8');
       child.stderr.setEncoding('utf8');
       child.stdin.on('error', () => {}); // a failed interpreter may close stdin first
+      this.send({ cmd: 'folders', paths: this.folders }); // a new client starts without them
       let buffer = '', lastState = '';
       child.stdout.on('data', (chunk) => {
         if (generation !== this.generation) return;

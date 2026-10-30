@@ -22,13 +22,39 @@
   },
   "devDependencies": { "@vscode/vsce": "^3.6.2" },
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [{ "id": "psvAgentRemote", "title": "PSV Agent Remote", "icon": "media/panel.svg" }]
+    },
+    "views": {
+      "psvAgentRemote": [{ "id": "psvAgentRemote.panel", "name": "PSV Agent Remote" }]
+    },
+    "menus": {
+      "view/title": [
+        { "command": "psvAgentRemote.restart", "when": "view == psvAgentRemote.panel", "group": "navigation" },
+        { "command": "psvAgentRemote.configure", "when": "view == psvAgentRemote.panel", "group": "navigation" },
+        { "command": "psvAgentRemote.logs", "when": "view == psvAgentRemote.panel", "group": "navigation" }
+      ],
+      "view/item/context": [
+        { "command": "psvAgentRemote.kiroStart", "when": "view == psvAgentRemote.panel && viewItem == kiroStopped", "group": "inline" },
+        { "command": "psvAgentRemote.kiroStop", "when": "view == psvAgentRemote.panel && viewItem == kiroRunning", "group": "inline" },
+        { "command": "psvAgentRemote.restore", "when": "view == psvAgentRemote.panel && viewItem == removedCodex", "group": "inline" }
+      ],
+      "commandPalette": [
+        { "command": "psvAgentRemote.kiroStart", "when": "false" },
+        { "command": "psvAgentRemote.kiroStop", "when": "false" },
+        { "command": "psvAgentRemote.restore", "when": "false" }
+      ]
+    },
     "commands": [
       { "command": "psvAgentRemote.start", "title": "PSV Agent Remote: Connect" },
       { "command": "psvAgentRemote.stop", "title": "PSV Agent Remote: Disconnect This Window" },
-      { "command": "psvAgentRemote.restart", "title": "PSV Agent Remote: Reconnect" },
-      { "command": "psvAgentRemote.logs", "title": "PSV Agent Remote: Show Logs" },
-      { "command": "psvAgentRemote.configure", "title": "PSV Agent Remote: Configure" },
-      { "command": "psvAgentRemote.menu", "title": "PSV Agent Remote: Connection Menu" }
+      { "command": "psvAgentRemote.restart", "title": "PSV Agent Remote: Reconnect", "icon": "$(refresh)" },
+      { "command": "psvAgentRemote.logs", "title": "PSV Agent Remote: Show Logs", "icon": "$(output)" },
+      { "command": "psvAgentRemote.configure", "title": "PSV Agent Remote: Configure", "icon": "$(gear)" },
+      { "command": "psvAgentRemote.menu", "title": "PSV Agent Remote: Connection Menu" },
+      { "command": "psvAgentRemote.kiroStart", "title": "PSV Agent Remote: Start Kiro Session", "icon": "$(play)" },
+      { "command": "psvAgentRemote.kiroStop", "title": "PSV Agent Remote: Stop Kiro Session", "icon": "$(debug-stop)" },
+      { "command": "psvAgentRemote.restore", "title": "PSV Agent Remote: Show on Vita", "icon": "$(eye)" }
     ],
     "configuration": {
       "title": "PSV Agent Remote",

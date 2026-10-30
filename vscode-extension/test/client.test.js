@@ -106,3 +106,22 @@ test('the runtime bundles psv_kiro.py next to psv_codex.py', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'prepare_runtime.py'), 'utf8');
   assert.match(source, /hooks\/psv_kiro\.py/);
 });
+
+test('client sends commands and resends the folders after a restart', async () => {
+  const children = [];
+  const client = new Client({
+    runtime: '/rt', status: () => {}, log: () => {}, python: async () => '/py',
+    spawnProcess: () => { const c = new Child(); c.written = []; c.stdin.on('data', (d) => c.written.push(String(d))); children.push(c); return c; },
+  });
+  client.setFolders(['/w/a']);
+  await client.start({});
+  client.send({ cmd: 'restore', sid: 'codex-b' });
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(children[0].written.join('').trim().split('\n').map(JSON.parse),
+    [{ cmd: 'folders', paths: ['/w/a'] }, { cmd: 'restore', sid: 'codex-b' }]);
+  const second = client.start({});
+  children[0].exitCode = 0; children[0].emit('exit', 0);
+  await second;
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(JSON.parse(children[1].written.join('').trim()), { cmd: 'folders', paths: ['/w/a'] });
+});

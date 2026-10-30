@@ -3,6 +3,7 @@
 const vscode = require('vscode');
 const path = require('node:path');
 const { Client } = require('./client');
+const { makeProvider, confirmKiroStop } = require('./panel');
 
 let client;
 
@@ -12,7 +13,12 @@ function configuration() {
     'hostId', 'ipcSocket', 'stateDatabase', 'appServerSockets', 'maxSessions'].map((key) => [key, source.get(key)]));
 }
 
+function folders() {
+  return (vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath);
+}
+
 function activate(context) {
+  const panel = makeProvider(vscode);
   const output = vscode.window.createOutputChannel('PSV Agent Remote');
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 20);
   bar.name = 'PSV Agent Remote';
@@ -22,6 +28,7 @@ function activate(context) {
   let lastMessage = '';
   function update(message) {
     state = message;
+    panel.update(message, folders());
     const labels = { starting: '$(sync~spin) PSV: Starting', stopped: '$(debug-disconnect) PSV: Disconnected',
       disabled: '$(circle-slash) PSV: Disabled', conflict: '$(warning) PSV: Settings conflict', error: '$(warning) PSV: Check setup',
       broker: '$(warning) PSV: Can\'t reach broker' };
@@ -46,6 +53,9 @@ function activate(context) {
     stop: async () => { paused = true; await client.stop(); },
     restart: () => start(true),
     logs: () => output.show(true),
+    kiroStart: (node) => { if (node && node.cwd) client.send({ cmd: 'kiro_start', cwd: node.cwd }); },
+    kiroStop: (node) => node && node.cwd ? confirmKiroStop(node, vscode.window.showWarningMessage, (cmd) => client.send(cmd)) : undefined,
+    restore: (node) => { if (node && node.sid) client.send({ cmd: 'restore', sid: node.sid }); },
     configure: () => vscode.commands.executeCommand('workbench.action.openSettings', '@ext:psv-agent-remote.psv-agent-remote'),
     menu: async () => {
       const items = [
@@ -59,6 +69,9 @@ function activate(context) {
   };
   for (const [name, callback] of Object.entries(commands))
     context.subscriptions.push(vscode.commands.registerCommand(`psvAgentRemote.${name}`, callback));
+  client.setFolders(folders());
+  context.subscriptions.push(vscode.window.registerTreeDataProvider('psvAgentRemote.panel', panel),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => { client.setFolders(folders()); panel.update(state, folders()); }));
   context.subscriptions.push(output, bar, vscode.workspace.onDidChangeConfiguration(async (event) => {
     if (!event.affectsConfiguration('psvAgentRemote')) return;
     if (!configuration().autoStart) await client.stop();

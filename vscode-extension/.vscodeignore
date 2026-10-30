@@ -4,6 +4,7 @@
 !CHANGELOG.md
 !media/
 !media/icon.png
+!media/panel.svg
 !src/
 !src/*.js
 !runtime/
