@@ -19,14 +19,17 @@ function activate(context) {
   bar.command = 'psvAgentRemote.menu';
   let state = { state: 'stopped' };
   let paused = false;
+  let lastMessage = '';
   function update(message) {
     state = message;
     const labels = { starting: '$(sync~spin) PSV: Starting', stopped: '$(debug-disconnect) PSV: Disconnected',
-      disabled: '$(circle-slash) PSV: Disabled', conflict: '$(warning) PSV: Settings conflict', error: '$(warning) PSV: Check setup' };
+      disabled: '$(circle-slash) PSV: Disabled', conflict: '$(warning) PSV: Settings conflict', error: '$(warning) PSV: Check setup',
+      broker: '$(warning) PSV: Can\'t reach broker' };
     bar.text = message.state === 'running' ? `$(radio-tower) PSV: ${message.bridges} sessions` : labels[message.state] || 'PSV';
     bar.tooltip = message.message || (message.state === 'running' ?
       `Codex manager running · ${message.bridges} managed sessions. Click for controls.` : 'Click for connection controls.');
-    if (message.message) output.appendLine(message.message);
+    if (message.message && message.message !== lastMessage) output.appendLine(message.message); // statuses repeat every few seconds
+    lastMessage = message.message || '';
     bar.show();
   }
   client = new Client({ runtime: path.join(context.extensionPath, 'runtime'), status: update,

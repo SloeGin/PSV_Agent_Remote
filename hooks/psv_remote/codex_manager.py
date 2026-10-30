@@ -2,6 +2,7 @@
 
 import fcntl
 import hashlib
+import os
 import sqlite3
 import subprocess
 import sys
@@ -10,7 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .codex_discovery import AppServerDiscovery, IPCDiscovery
+from .bus import BusError, open_bus
 from .codex_control import ManagerControl, configuration_key, configuration_summary
+from .config import DEFAULT_PATH, LEGACY_PATH
 from .rpc import DependencyError, NativeError
 from .remote import scoped_session_id
 
@@ -102,6 +105,49 @@ class Supervisor:
             del self.workers[sid]
 
 
+def broker_configured(env=os.environ) -> bool:
+    """False when this machine has no broker setting at all (so the 127.0.0.1 default is a guess)."""
+    return "PSV_REMOTE_HOST" in env or DEFAULT_PATH.exists() or LEGACY_PATH.exists()
+
+
+def broker_problem(cfg, configured: bool, error: str) -> str:
+    where = f"{cfg.broker_host}:{cfg.broker_port}"
+    if not configured:
+        return (f"Can't reach the MQTT broker at {where}: no broker is set on this machine. Set Broker Host for "
+                "this host (in a Remote SSH window, in its Remote settings tab), or create "
+                "~/.config/psv-agent-remote/config.toml.")
+    return f"Can't reach the MQTT broker at {where} ({error}). Check that it is running and reachable from this machine."
+
+
+class BrokerProbe:
+    """Checks the broker from the manager itself: bridges report failures only in their own logs."""
+
+    OK_EVERY_S, FAILING_EVERY_S = 60, 10
+
+    def __init__(self, connect, cfg, configured: bool, clock=time.monotonic):
+        self.connect, self.cfg, self.configured, self.clock = connect, cfg, configured, clock
+        self.reachable: bool | None = None
+        self.message = ""
+        self.next_at = 0.0
+
+    def poll(self) -> bool:
+        """Check if due; True when reachability changed (so it is worth logging)."""
+        if self.clock() < self.next_at:
+            return False
+        before = self.reachable
+        try:
+            self.connect().close()
+            self.reachable, self.message = True, ""
+        except BusError as error:
+            self.reachable = False
+            self.message = broker_problem(self.cfg, self.configured, str(error).removeprefix("connect failed: "))
+        self.next_at = self.clock() + (self.OK_EVERY_S if self.reachable else self.FAILING_EVERY_S)
+        return self.reachable != before
+
+    def state(self) -> dict | None:
+        return None if self.reachable is None else {"reachable": self.reachable, "message": self.message}
+
+
 class DiscoverySlot:
     def __init__(self, factory, clock=time.monotonic):
         self.factory, self.clock = factory, clock
@@ -149,6 +195,7 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
     options = dict(ipc_path=ipc_path, database=database, app_paths=list(app_paths), cwd=cwd, limit=limit)
     control = None
     count = None
+    probe = BrokerProbe(lambda: open_bus(cfg), cfg, broker_configured())
     try:
         control = ManagerControl(cfg, host_id, configuration_key(cfg, host_id, options), lease_managed,
                                  configuration_summary(cfg, host_id, options))
@@ -156,7 +203,9 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
             routes = [route for slot in slots for route in slot.scan()]
             supervisor.reconcile(routes)
             current = len(supervisor.workers)
-            control.update(current, len({route.thread_id for route in routes}))
+            if probe.poll():
+                print(probe.message or f"MQTT broker reachable at {cfg.broker_host}:{cfg.broker_port}.", flush=True)
+            control.update(current, len({route.thread_id for route in routes}), broker=probe.state())
             if current != count:
                 print(f"Codex manager: {current} bridge(s) running.", flush=True)
                 count = current

@@ -131,3 +131,69 @@ def test_manually_started_manager_is_never_replaced():
 def test_older_manager_without_settings_still_gets_a_message():
     action, message = resolve_conflict({"mode": "persistent", "windows": 0}, mine(), replace=False)
     assert action == "conflict" and "different settings" in message
+
+
+# ---- an unreachable broker is reported, not hidden in per-session bridge logs ----
+
+from psv_remote.bus import BusError  # noqa: E402
+from psv_remote.codex_manager import BrokerProbe, broker_problem  # noqa: E402
+from psv_remote.vscode_client import running_status  # noqa: E402
+
+
+def test_unconfigured_machine_is_told_how_to_set_the_broker():
+    msg = broker_problem(Config(), configured=False, error="connection refused")
+    assert "127.0.0.1:1883" in msg and "no broker is set on this machine" in msg
+    assert "~/.config/psv-agent-remote/config.toml" in msg and "Remote settings" in msg
+
+
+def test_configured_broker_problem_names_the_address():
+    msg = broker_problem(Config(broker_host="192.168.1.20"), configured=True, error="timed out")
+    assert "192.168.1.20:1883" in msg and "timed out" in msg and "config.toml" not in msg
+
+
+class FakeConnect:
+    def __init__(self, results):
+        self.results, self.calls = list(results), 0
+
+    def __call__(self):
+        self.calls += 1
+        result = self.results.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return type("Bus", (), {"close": lambda self: None})()
+
+
+def test_probe_reports_changes_and_backs_off():
+    t = [0.0]
+    connect = FakeConnect([BusError("connect failed: refused"), BusError("refused"), "ok"])
+    probe = BrokerProbe(connect, Config(), configured=False, clock=lambda: t[0])
+    assert probe.poll() is True and probe.reachable is False  # changed: now known unreachable
+    assert "no broker is set" in probe.message
+    t[0] += 5
+    assert probe.poll() is False and connect.calls == 1  # not yet: retried every 10 s while failing
+    t[0] += 6
+    assert probe.poll() is False and connect.calls == 2  # still failing: no change to report
+    t[0] += 11
+    assert probe.poll() is True and probe.reachable is True and probe.message == ""
+    t[0] += 20
+    assert connect.calls == 3 and probe.poll() is False and connect.calls == 3  # healthy: every 60 s
+
+
+def test_manager_state_carries_the_broker_check(tmp_path):
+    cfg = Config(state_dir=tmp_path)
+    control = ManagerControl(cfg, "host", "key", managed=True)
+    try:
+        control.update(1, 1, broker={"reachable": False, "message": "Can't reach"})
+        assert request(cfg, "host")["broker"] == {"reachable": False, "message": "Can't reach"}
+    finally:
+        control.close()
+
+
+def test_status_bar_shows_an_unreachable_broker_instead_of_healthy_sessions():
+    state = {"bridges": 2, "discovered": 2, "mode": "extension",
+             "broker": {"reachable": False, "message": "Can't reach the MQTT broker at 127.0.0.1:1883"}}
+    status = running_status(state, "/tmp/x.log")
+    assert status["state"] == "broker" and status["message"].startswith("Can't reach")
+    ok = running_status({**state, "broker": {"reachable": True, "message": ""}}, "/tmp/x.log")
+    assert ok["state"] == "running" and ok["bridges"] == 2
+    assert running_status({"bridges": 0, "discovered": 0, "mode": "extension"}, "/tmp/x.log")["state"] == "running"

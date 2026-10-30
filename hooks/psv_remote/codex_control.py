@@ -70,6 +70,7 @@ class ManagerControl:
         self.lock = threading.Lock()
         self.leases = Leases(managed)
         self.bridges, self.discovered = 0, 0
+        self.broker = None
         self.mode = "extension" if managed else "persistent"
         control = self
 
@@ -131,11 +132,14 @@ class ManagerControl:
         return {"protocol": 1, "run_id": self.run_id, "pid": os.getpid(), "mode": self.mode,
                 "configuration": self.key, "bridges": self.bridges, "discovered": self.discovered,
                 "windows": len(self.leases.clients),
+                **({"broker": self.broker} if self.broker is not None else {}),
                 **({"settings": self.settings} if self.settings is not None else {})}
 
-    def update(self, bridges, discovered):
+    def update(self, bridges, discovered, broker=None):
         with self.lock:
             self.bridges, self.discovered = bridges, discovered
+            if broker is not None:
+                self.broker = broker
 
     def should_stop(self):
         with self.lock:

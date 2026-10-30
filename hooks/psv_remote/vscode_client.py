@@ -55,6 +55,17 @@ def resolve_conflict(state, ours, replace):
                         "(pkill -f \"psv_codex.py watch\"), then run Reconnect.")
 
 
+def running_status(state, log_path) -> dict:
+    """The status line for a manager this window is using; an unreachable broker wins."""
+    broker = state.get("broker") or {}
+    if broker.get("reachable") is False:
+        return {"type": "status", "state": "broker", "message": broker.get("message", "Can't reach the MQTT broker."),
+                "bridges": state["bridges"], "discovered": state["discovered"], "mode": state["mode"],
+                "log_path": str(log_path)}
+    return {"type": "status", "state": "running", "bridges": state["bridges"], "discovered": state["discovered"],
+            "mode": state["mode"], "log_path": str(log_path)}
+
+
 def run_client(cfg, host_id, options, replace=False):
     if not cfg.enabled:
         emit("status", state="disabled", message="Bridge disabled in the shared configuration.")
@@ -89,8 +100,8 @@ def run_client(cfg, host_id, options, replace=False):
                     emit("status", state="conflict", message=message)
                 else:
                     state = request(cfg, host_id, "lease", client)
-                    emit("status", state="running", bridges=state["bridges"],
-                         discovered=state["discovered"], mode=state["mode"], log_path=str(logfile))
+                    status = running_status(state, logfile)
+                    emit(status.pop("type"), **status)
                     last_message = None
                     replace = False
             except errors:
