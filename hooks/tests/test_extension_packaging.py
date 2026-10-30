@@ -16,6 +16,7 @@ def test_extension_bundle_only_copies_python_sources_and_cleans_stale_runtime(tm
     (extension / 'runtime/stale.log').write_text('old runtime data')
     (extension / 'scripts/launcher.py').write_text('# launcher')
     (repo / 'hooks/psv_codex.py').write_text('# entry')
+    (repo / 'hooks/psv_kiro.py').write_text('# kiro entry')
     (package / '__init__.py').write_text('# package')
     (package / 'adapters/codex.py').write_text('# adapter')
     (package / '__pycache__/old.py').write_text('# stale')
@@ -25,4 +26,4 @@ def test_extension_bundle_only_copies_python_sources_and_cleans_stale_runtime(tm
     runtime = module.copy_sources(repo, extension)
     assert (extension / 'dist').is_dir()
     files = sorted(str(p.relative_to(runtime)) for p in runtime.rglob('*') if p.is_file())
-    assert files == ['launcher.py', 'psv_codex.py', 'psv_remote/__init__.py', 'psv_remote/adapters/codex.py']
+    assert files == ['launcher.py', 'psv_codex.py', 'psv_kiro.py', 'psv_remote/__init__.py', 'psv_remote/adapters/codex.py']
