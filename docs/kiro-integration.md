@@ -34,7 +34,18 @@ exchange and answer approvals.
   kiro-cli login
   ```
 
-### Start
+### Start from VS Code
+
+With the PSV Agent Remote VS Code extension, open the **PSV Agent Remote** panel
+in the Activity Bar. Under **Kiro in this window**, each workspace folder has a
+**Start** button. The session keeps running after you close VS Code (use it from
+the Vita); reopen VS Code to see it again, and **Stop** it from the panel, which
+asks first because it ends the conversation. A failed start (for example, the
+CLI not logged in) shows its reason next to the folder. The extension uses its
+own broker setting and its bundled Python libraries; the Kiro CLI must be
+installed and logged in on the machine running the workspace.
+
+### Start from a terminal
 
 Set the broker in `~/.config/psv-agent-remote/config.toml`, as for the other
 agents:
@@ -60,8 +71,9 @@ hooks/.venv/bin/python hooks/psv_kiro.py --cwd /absolute/path/to/project
 The broker address can also come from `PSV_REMOTE_HOST` and `PSV_REMOTE_PORT`
 instead of the configuration file.
 
-The bridge runs until you press Ctrl-C, which also ends the `kiro-cli` process
-and the session. If the broker becomes unreachable, the bridge keeps the session
+The bridge runs until you press Ctrl-C (or end the session from the Vita), which
+also ends the `kiro-cli` process and the session. Bridges started from a terminal
+also appear in the VS Code panel, where they can be stopped. If the broker becomes unreachable, the bridge keeps the session
 and reconnects on its own. It does not install a login service; start it again
 after a reboot. Only one bridge can run per working directory.
 
@@ -81,6 +93,9 @@ If the CLI is not logged in, the bridge exits with
    picks it up at its next safe point, without starting a new turn.
 5. **Stop** interrupts the running turn. An approval that was still open is
    withdrawn with it.
+6. To **end** the session, remove it in the session list (SELECT, then □). The
+   dialog asks "End the Kiro session in <project>?"; **End** stops the bridge and
+   `kiro-cli`. (Removing Claude Code or Codex sessions only hides them.)
 
 ### Limitations
 

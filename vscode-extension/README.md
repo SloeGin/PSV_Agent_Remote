@@ -41,8 +41,18 @@ configuration. Alternatively set **Broker Host** and **Broker Port** in VS Code'
 PSV Agent Remote settings. The broker configuration is shared with Claude hooks;
 the extension does not install or change those hooks.
 
-The status bar shows the manager state and the number of managed sessions. This
-is not a claim that the Vita is online. Click it for:
+The **PSV Agent Remote** panel in the Activity Bar shows:
+
+- **Connection**: whether the broker is reachable, and whether the Vita is online
+  and in sofa or desk mode.
+- **Sessions**: every session on the broker (Claude Code, Codex and Kiro, from all
+  your computers) and its state. Codex sessions you removed on the Vita are listed
+  as "removed on Vita", with **Show on Vita** to bring one back.
+- **Kiro in this window**: **Start** or **Stop** a Kiro session for each workspace
+  folder (see [Kiro support](../docs/kiro-integration.md)).
+
+Its title bar has Reconnect, Configure and Show logs. The status bar shows the
+manager state and the number of managed sessions. Click it for:
 
 - **Connect** and **Disconnect this window**.
 - **Reconnect**, including applying changed settings to an extension-owned manager.
