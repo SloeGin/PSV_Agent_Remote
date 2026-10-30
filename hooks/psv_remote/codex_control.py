@@ -161,11 +161,11 @@ class ManagerControl:
         self.path.unlink(missing_ok=True)
 
 
-def request(cfg, host_id, action="state", client=None):
+def request(cfg, host_id, action="state", client=None, **fields):
     descriptor = json.loads(control_path(cfg, host_id).read_text())
     connection = http.client.HTTPConnection("127.0.0.1", descriptor["port"], timeout=2)
     try:
-        payload = {"run_id": descriptor["run_id"], "client": client}
+        payload = {"run_id": descriptor["run_id"], "client": client, **fields}
         connection.request("POST", "/" + action, json.dumps(payload), {
             "Authorization": "Bearer " + descriptor["token"], "Content-Type": "application/json"})
         response = connection.getresponse()

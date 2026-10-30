@@ -302,3 +302,56 @@ def request_with(cfg, action, **fields):
             raise ValueError(response.status)
     finally:
         connection.close()
+
+
+# ---- the VS Code client forwards panel data and takes commands on stdin ----
+
+from psv_remote import kiro_registry  # noqa: E402
+from psv_remote.vscode_client import handle_command, kiro_status  # noqa: E402
+
+PANEL_STATE = {"bridges": 1, "discovered": 1, "mode": "extension",
+               "vita": {"online": True, "mode": "sofa"},
+               "sessions": [{"sid": "a", "agent": "codex", "project": "notes", "state": "idle", "local": True}],
+               "removed": [{"sid": "codex-b", "project": "api"}]}
+
+
+def test_status_carries_panel_fields():
+    kiro = {"bridges": [], "errors": {}}
+    status = running_status(PANEL_STATE, "/tmp/x.log", kiro)
+    assert status["vita"] == PANEL_STATE["vita"] and status["sessions"] == PANEL_STATE["sessions"]
+    assert status["removed"] == PANEL_STATE["removed"] and status["kiro"] == kiro
+
+
+def test_old_manager_status_has_no_panel_fields():
+    status = running_status({"bridges": 0, "discovered": 0, "mode": "extension"}, "/tmp/x.log", None)
+    assert not {"vita", "sessions", "removed", "kiro"} & set(status)
+
+
+def test_restore_command_calls_the_manager(tmp_path):
+    cfg = Config(state_dir=tmp_path)
+    restored = []
+    control = ManagerControl(cfg, "host", "key", managed=True, restore=lambda sid: restored.append(sid) or True)
+    try:
+        handle_command(cfg, "host", '{"cmd": "restore", "sid": "codex-b"}', [])
+        assert restored == ["codex-b"]
+    finally:
+        control.close()
+
+
+def test_folders_command_reports_failed_kiro_starts(tmp_path):
+    cfg = Config(state_dir=tmp_path)
+    folders = []
+    handle_command(cfg, "host", json.dumps({"cmd": "folders", "paths": ["/p", "/q"]}), folders)
+    assert folders == ["/p", "/q"]
+    key = kiro_registry.lock_key("host", "/p")
+    (tmp_path / f"kiro-{key}.log").write_text("Kiro CLI is not logged in; run `kiro-cli login`\n")
+    assert kiro_status(cfg, "host", folders) == {"bridges": [], "errors": {"/p": "Kiro CLI is not logged in; run `kiro-cli login`"}}
+
+
+def test_bad_command_is_ignored(tmp_path):
+    cfg = Config(state_dir=tmp_path)
+    folders = ["/keep"]
+    for line in ("not json", "[]", '{"cmd": "dance"}', '{"cmd": "folders", "paths": "nope"}',
+                 '{"cmd": "restore"}'):
+        handle_command(cfg, "host", line, folders)  # no manager running, bad input: nothing raises
+    assert folders == ["/keep"]

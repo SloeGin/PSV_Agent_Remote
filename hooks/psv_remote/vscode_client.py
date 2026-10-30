@@ -10,6 +10,7 @@ import time
 import uuid
 from pathlib import Path
 
+from . import kiro_registry
 from .codex_control import configuration_key, configuration_summary, control_path, request
 
 
@@ -55,15 +56,57 @@ def resolve_conflict(state, ours, replace):
                         "(pkill -f \"psv_codex.py watch\"), then run Reconnect.")
 
 
-def running_status(state, log_path) -> dict:
-    """The status line for a manager this window is using; an unreachable broker wins."""
+PANEL_FIELDS = ("vita", "sessions", "removed")
+
+
+def running_status(state, log_path, kiro=None) -> dict:
+    """The status line for a manager this window is using; an unreachable broker wins.
+
+    It also carries what the side-bar panel shows; a manager too old to report it
+    leaves those fields out, and the panel asks for a Reconnect.
+    """
     broker = state.get("broker") or {}
+    status = {"type": "status", "state": "running", "bridges": state["bridges"], "discovered": state["discovered"],
+              "mode": state["mode"], "log_path": str(log_path)}
     if broker.get("reachable") is False:
-        return {"type": "status", "state": "broker", "message": broker.get("message", "Can't reach the MQTT broker."),
-                "bridges": state["bridges"], "discovered": state["discovered"], "mode": state["mode"],
-                "log_path": str(log_path)}
-    return {"type": "status", "state": "running", "bridges": state["bridges"], "discovered": state["discovered"],
-            "mode": state["mode"], "log_path": str(log_path)}
+        status.update(state="broker", message=broker.get("message", "Can't reach the MQTT broker."))
+    if all(field in state for field in PANEL_FIELDS):
+        status.update({field: state[field] for field in PANEL_FIELDS})
+        if kiro is not None:
+            status["kiro"] = kiro
+    return status
+
+
+def kiro_status(cfg, host_id, folders) -> dict:
+    """Kiro bridges running on this machine, and why a start failed in one of the window's folders."""
+    bridges = kiro_registry.entries(cfg.state_dir)
+    running = {entry["cwd"] for entry in bridges}
+    errors = {}
+    for folder in folders:
+        if folder not in running:
+            error = kiro_registry.last_error(cfg.state_dir, kiro_registry.lock_key(host_id, folder))
+            if error:
+                errors[folder] = error
+    return {"bridges": [{k: v for k, v in e.items() if k != "key"} for e in bridges], "errors": errors}
+
+
+def handle_command(cfg, host_id, line, folders) -> None:
+    """One JSON command from the extension; anything malformed is ignored."""
+    try:
+        command = json.loads(line)
+    except ValueError:
+        return
+    if not isinstance(command, dict):
+        return
+    if command.get("cmd") == "folders":
+        paths = command.get("paths")
+        if isinstance(paths, list) and all(isinstance(p, str) for p in paths):
+            folders[:] = paths
+    elif command.get("cmd") == "restore" and isinstance(command.get("sid"), str):
+        try:
+            request(cfg, host_id, "restore", sid=command["sid"])
+        except (OSError, ValueError, KeyError, http.client.HTTPException):
+            pass
 
 
 def run_client(cfg, host_id, options, replace=False):
@@ -71,8 +114,11 @@ def run_client(cfg, host_id, options, replace=False):
         emit("status", state="disabled", message="Bridge disabled in the shared configuration.")
         return
     stopped = threading.Event()
+    folders = []  # the window's workspace folders, sent by the extension
+
     def stdin_closed():
-        while sys.stdin.buffer.read(1): pass
+        for line in sys.stdin.buffer:  # JSON commands from the extension, one per line
+            handle_command(cfg, host_id, line.decode("utf-8", "replace"), folders)
         stopped.set()  # extension host crash also closes the pipe
     threading.Thread(target=stdin_closed, daemon=True).start()
     client = uuid.uuid4().hex
@@ -100,7 +146,7 @@ def run_client(cfg, host_id, options, replace=False):
                     emit("status", state="conflict", message=message)
                 else:
                     state = request(cfg, host_id, "lease", client)
-                    status = running_status(state, logfile)
+                    status = running_status(state, logfile, kiro_status(cfg, host_id, folders))
                     emit(status.pop("type"), **status)
                     last_message = None
                     replace = False
