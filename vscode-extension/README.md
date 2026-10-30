@@ -49,7 +49,7 @@ The **PSV Agent Remote** panel in the Activity Bar shows:
   your computers) and its state. Codex sessions you removed on the Vita are listed
   as "removed on Vita", with **Show on Vita** to bring one back.
 - **Kiro in this window**: **Start** or **Stop** a Kiro session for each workspace
-  folder (see [Kiro support](../docs/kiro-integration.md)).
+  folder (see [Kiro support](https://github.com/SloeGin/PSV_Agent_Remote/blob/main/docs/kiro-integration.md)).
 
 Its title bar has Reconnect, Configure and Show logs. The status bar shows the
 manager state and the number of managed sessions. Click it for:
