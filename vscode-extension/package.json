@@ -8,7 +8,7 @@
   "license": "UNLICENSED",
   "engines": { "vscode": "^1.96.0" },
   "categories": ["Other"],
-  "extensionKind": ["ui"],
+  "extensionKind": ["workspace"],
   "activationEvents": ["onStartupFinished"],
   "main": "./src/extension.js",
   "capabilities": {
@@ -33,13 +33,13 @@
     "configuration": {
       "title": "PSV Agent Remote",
       "properties": {
-        "psvAgentRemote.autoStart": { "type": "boolean", "default": true, "scope": "application", "description": "Connect local Codex sessions automatically when VS Code starts." },
-        "psvAgentRemote.pythonPath": { "type": "string", "default": "", "scope": "machine", "description": "Python 3.11+ executable path. Empty searches standard local installations. No pip install is needed." },
-        "psvAgentRemote.experimentalIpc": { "type": "boolean", "default": true, "scope": "application", "description": "Discover local VS Code Codex sessions through the version-dependent frontend IPC interface." },
-        "psvAgentRemote.brokerHost": { "type": "string", "default": "", "scope": "machine", "description": "MQTT broker address. Empty uses the existing PSV Agent Remote configuration." },
+        "psvAgentRemote.autoStart": { "type": "boolean", "default": true, "scope": "application", "description": "Connect Codex sessions automatically when VS Code starts. In a Remote SSH window this runs on the remote host, next to Codex." },
+        "psvAgentRemote.pythonPath": { "type": "string", "default": "", "scope": "machine", "description": "Python 3.11+ executable path on the machine running the workspace. Empty searches standard installations. No pip install is needed." },
+        "psvAgentRemote.experimentalIpc": { "type": "boolean", "default": true, "scope": "application", "description": "Discover VS Code Codex sessions through the version-dependent frontend IPC interface." },
+        "psvAgentRemote.brokerHost": { "type": "string", "default": "", "scope": "machine", "description": "MQTT broker address, as reached from the machine running the workspace (set it per Remote SSH host). Empty uses that machine's PSV Agent Remote configuration." },
         "psvAgentRemote.brokerPort": { "type": "number", "default": 1883, "minimum": 1, "maximum": 65535, "scope": "machine", "description": "MQTT broker port, used when brokerHost is set." },
-        "psvAgentRemote.hostId": { "type": "string", "default": "", "scope": "machine", "description": "Stable host identity. Empty uses the local hostname." },
-        "psvAgentRemote.ipcSocket": { "type": "string", "default": "", "scope": "machine", "description": "Optional local Codex frontend Unix socket path." },
+        "psvAgentRemote.hostId": { "type": "string", "default": "", "scope": "machine", "description": "Stable host identity. Empty uses the hostname of the machine running the workspace." },
+        "psvAgentRemote.ipcSocket": { "type": "string", "default": "", "scope": "machine", "description": "Optional Codex frontend Unix socket path." },
         "psvAgentRemote.stateDatabase": { "type": "string", "default": "", "scope": "machine", "description": "Optional read-only Codex thread index path." },
         "psvAgentRemote.appServerSockets": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [], "scope": "machine", "description": "Existing shared CLI App Server Unix socket paths. Configure once per runtime, not per session." },
         "psvAgentRemote.maxSessions": { "type": "number", "default": 16, "minimum": 1, "maximum": 16, "scope": "application", "description": "Maximum number of managed Codex sessions." }

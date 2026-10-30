@@ -49,8 +49,11 @@ VS Code extension `26.1021.22027`, with state stream version 11. Other versions
 are not guaranteed to work. An incompatible stream disables the affected bridge.
 The bridge does not take ownership of the conversation.
 
-Windows and agents running on remote machines are not supported. In a Remote SSH
-window, the PSV extension still connects to agents on the local computer.
+Windows is not supported. In a Remote SSH window, Codex runs on the remote host,
+and so does the PSV extension: install it on that host too (VS Code offers
+**Install in SSH: host**), and set the broker in that host's settings or its
+`~/.config/psv-agent-remote/config.toml`. The remote host needs Python 3.11+ and
+must be able to reach the broker. This setup is not yet verified on hardware.
 
 Approval, question, reply, stop and bridge lifecycle paths have passed local
 backend/MQTT tests. **Full Codex hardware acceptance on the Vita remains pending.**

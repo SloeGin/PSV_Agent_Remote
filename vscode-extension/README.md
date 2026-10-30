@@ -21,7 +21,8 @@ additional API key.
    ```
 
 2. In VS Code, run **Extensions: Install from VSIX…**, select
-   `dist/psv-agent-remote-0.1.0.vsix`, and enable it in a trusted local window.
+   `dist/psv-agent-remote-0.1.0.vsix`, and enable it in a trusted window. For a
+   Remote SSH window, also install it on that host (**Install in SSH: host**).
 3. Run **PSV Agent Remote: Configure** and set **Broker Host** and **Broker Port**,
    or reuse the existing configuration file below. Open Codex and use it normally.
 
@@ -83,8 +84,11 @@ override the frontend socket, read-only state index and stable host ID. The loca
 index defaults to `~/.codex/state_5.sqlite`; only live-owned interactive sessions
 are bridged, not archived history or spawned agents.
 
-The extension runs locally even in a Remote SSH window; it connects to agents on
-the local machine. Remote agent support and Windows are not implemented.
+The extension runs wherever the workspace runs, next to Codex. In a Remote SSH
+window that is the remote host: install the extension there too (**Install in
+SSH: host**), and set **Broker Host** in that host's Remote settings (or its own
+`~/.config/psv-agent-remote/config.toml`). The host needs Python 3.11+ and must
+reach the broker. Windows is not supported.
 
 ## Development
 

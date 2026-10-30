@@ -33,7 +33,7 @@ function activate(context) {
     log: (text) => output.appendLine(String(text)) });
   async function start(replace = false) {
     if (!['darwin', 'linux'].includes(process.platform)) {
-      update({ state: 'error', message: 'This bridge currently supports local macOS and Linux runtimes.' }); return;
+      update({ state: 'error', message: 'This bridge supports macOS and Linux hosts (including Remote SSH hosts), not Windows.' }); return;
     }
     paused = false;
     await client.start(configuration(), replace);

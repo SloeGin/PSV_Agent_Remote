@@ -88,3 +88,8 @@ test('disabled backend status remains visible on clean exit', async () => {
   assert.equal(states.at(-1).state, 'disabled');
   await client.stop();
 });
+
+test('runs wherever the workspace (and Codex) runs, including Remote SSH hosts', () => {
+  const manifest = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'package.json'), 'utf8'));
+  assert.deepEqual(manifest.extensionKind, ['workspace']);
+});
