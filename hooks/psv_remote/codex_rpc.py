@@ -69,6 +69,45 @@ class Peer:
             with self.lock:
                 self.pending.pop(key, None)
 
+    def begin(self, message):
+        """Send a request and return (key, inbox) without blocking on the reply.
+
+        For long-lived requests (ACP session/prompt settles only at turn end): the
+        caller polls the inbox with poll() from its own loop instead of tying up a
+        thread. poll() releases the pending slot once the reply arrives.
+        """
+        key = str(uuid.uuid4())
+        field = "requestId" if self.ipc else "id"
+        inbox = queue.Queue(maxsize=1)
+        with self.lock:
+            self.pending[key] = inbox
+        self.send({**message, field: key})
+        return key, inbox
+
+    def poll(self, key, inbox):
+        """Return the response dict if it has arrived, None if still pending.
+
+        Raises if the connection failed. Releases the pending slot on completion.
+        """
+        try:
+            response = inbox.get_nowait()
+        except queue.Empty:
+            if self.error:
+                self.finish(key)
+                raise NativeError("Connection lost") from self.error
+            return None
+        self.finish(key)
+        if isinstance(response, Exception):
+            raise NativeError("Connection lost") from response
+        if "error" in response:
+            error = response["error"]
+            raise RpcError(str(error.get("message", "Request rejected")) if isinstance(error, dict) else str(error))
+        return response.get("result", {})
+
+    def finish(self, key):
+        with self.lock:
+            self.pending.pop(key, None)
+
     def _fail(self, error):
         with self.lock:
             self.error = error

@@ -33,6 +33,9 @@ psk.txt
 # Local Codex probes, lab scripts, tests, and runtime research records
 /.local/codex-probes/
 
+# Local Kiro ACP probes and research records
+/.local/kiro-probes/
+
 # VS Code extension build outputs and dependencies
 /vscode-extension/node_modules/
 /vscode-extension/runtime/

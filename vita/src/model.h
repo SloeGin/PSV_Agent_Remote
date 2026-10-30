@@ -7,7 +7,7 @@
 #include "reply.h"
 
 typedef enum { ST_UNKNOWN, ST_RUNNING, ST_WAITING, ST_IDLE } SessState;
-typedef enum { AGENT_CLAUDE, AGENT_CODEX, AGENT_UNKNOWN } AgentKind;
+typedef enum { AGENT_CLAUDE, AGENT_CODEX, AGENT_KIRO, AGENT_UNKNOWN } AgentKind;
 typedef enum { CAP_UNKNOWN, CAP_SUPPORTED, CAP_UNSUPPORTED } Capability;
 typedef enum { CAP_APPROVAL, CAP_QUESTIONS, CAP_REPLY, CAP_STOP, CAP_COUNT } CapabilityKind;
 

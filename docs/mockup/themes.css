@@ -11,6 +11,12 @@
   --text:#e7f3ed; --text2:#bed3c7; --muted:#8da99a; --dim:#597466;
   --brand:#10A37F;
 }
+[data-theme="kiro"] {
+  --bg:#120f17; --panel:#19141f; --bar:#1b1524; --sheet:#171221;
+  --line:#322745; --line2:#261d35; --tabon:#2a2140; --hintbg:#0f0c15;
+  --text:#ece7f5; --text2:#c9bedd; --muted:#9a8db0; --dim:#645877;
+  --brand:#A78BFA;
+}
 [data-theme="app"] {
   --bg:#15170f; --panel:#1c1f14; --bar:#202417; --sheet:#191d12;
   --line:#3a4129; --line2:#2c321f; --tabon:#2b3120; --hintbg:#11140c;

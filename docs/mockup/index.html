@@ -13,7 +13,7 @@
   --amber:#ffb35c; --amber-deep:#6b4a25; --teal:#5fc9b8; --teal-deep:#2d5b54; --rose:#ff7a6b;
   --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Space Grotesk','Noto Sans SC',sans-serif; --cjk:'Noto Sans SC',sans-serif;
 }
-.scr[data-theme="codex"] .logo b,.scr[data-theme="app"] .logo b{color:inherit}
+.scr[data-theme="codex"] .logo b,.scr[data-theme="kiro"] .logo b,.scr[data-theme="app"] .logo b{color:inherit}
 *{box-sizing:border-box}
 body{margin:0;background:#0e100a;color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px}
 h1{font:500 15px var(--mono);letter-spacing:2px;color:#DDD23B;margin:0 0 4px}
@@ -140,7 +140,7 @@ h1{font:500 15px var(--mono);letter-spacing:2px;color:#DDD23B;margin:0 0 4px}
 .modal .b.sel{background:var(--brand);border-color:var(--brand);color:var(--bg)}
 .modal .b.sel.danger{background:var(--rose);border-color:var(--rose)}
 .agent-icon{width:24px;height:24px;flex:none;display:block}
-.agent-icon.claude{color:#d9a180}.agent-icon.codex{color:#10A37F}
+.agent-icon.claude{color:#d9a180}.agent-icon.codex{color:#10A37F}.agent-icon.kiro{color:#A78BFA}
 .cap-tooltip{position:absolute;inset:44px 0 30px;background:rgba(5,8,3,.72);color:var(--text);z-index:29;display:flex;align-items:center;justify-content:center}
 .cap-tooltip .box{width:610px;padding:22px 26px;background:var(--bar);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 60px #0008}
 .cap-tooltip .title{font-size:22px;margin-bottom:4px}.cap-tooltip .intro{color:var(--muted);font-size:13px;line-height:20px;margin-bottom:14px}
@@ -186,6 +186,7 @@ kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-rad
         <button data-view="settings">Settings</button>
         <button data-view="claude">Claude capabilities</button>
         <button data-view="codex">Codex capabilities</button>
+        <button data-view="kiro">Kiro capabilities</button>
       </div>
       <p class="small">Application pages use #DDD23B. The capabilities popup follows the highlighted Agent. Sofa, Desk and YOU keep their own colors.</p>
     </div>
@@ -224,7 +225,7 @@ kbd{font:12px var(--mono);background:#221b16;border:1px solid #3a2f27;border-rad
         <button data-sim="none">No sessions</button>
         <button data-sim="reset">Reset demo</button>
       </div>
-      <p class="small" style="margin:10px 0 0">Decisions open as a sheet over this turn's conversation. □ hides it (one line stays at the bottom) and brings it back. While it's hidden, ✕ does nothing. Each time the sheet appears, ✕ is locked for 0.5 s and nothing is highlighted.</p><p class="small">SELECT opens session edit mode. Agent icons appear only there; △ shows capabilities for the highlighted row. Any button dismisses the tooltip without acting. Open api-server (Codex) to preview the green theme. Capability values are illustrative.</p>
+      <p class="small" style="margin:10px 0 0">Decisions open as a sheet over this turn's conversation. □ hides it (one line stays at the bottom) and brings it back. While it's hidden, ✕ does nothing. Each time the sheet appears, ✕ is locked for 0.5 s and nothing is highlighted.</p><p class="small">SELECT opens session edit mode. Agent icons appear only there; △ shows capabilities for the highlighted row. Any button dismisses the tooltip without acting. Open api-server (Codex, green) or acp-bridge (Kiro, violet) to preview their themes. Capability values are illustrative; Kiro is not supported, so its controls show as unverified.</p>
     </div>
     <div class="card">
       <h2>SCALE</h2>
@@ -281,6 +282,12 @@ const TURN_C = [
 • 还没用真实的 Claude Code 跑过批准。原因是这台 Mac 上的 claude 命令行没登录。
 • PSV 端还没开始。下一步是计划 B，前 8 个任务在 Mac 上就能写和测。`},
 ];
+const TURN_D = [
+  {who:'you', text:'给 ACP bridge 加上断线重连。'},
+  {who:'claude', text:'先看一下现在是怎么 spawn kiro-cli acp 的，以及 session/update 流是在哪里处理的。'},
+  {who:'tool', tool:'Read', text:'hooks/psv_remote/acp_connection.py'},
+  {who:'claude', text:'连接断掉后需要重新 session/load 并在那之前注册 session/update，否则会漏掉 replay。我来加一个带退避的重连循环。'},
+];
 
 function reset(){
   nextRid = 1;
@@ -290,6 +297,9 @@ function reset(){
 <span class="c"># 清理依赖并重新安装，然后构建生产版本</span>`, '~/Workspace/fun-projects/PSV_agent_remote')], flash:false, since:now()},
       {sid:'b', agent:'codex', capabilities:{approval:true,questions:null,reply:null,stop:null}, project:'api-server', state:'running', turn:TURN_B.slice(), pending:[], flash:false, since:now()},
       {sid:'c', agent:'claude', capabilities:{approval:true,questions:true,reply:true,stop:true}, project:'notes', state:'idle', turn:TURN_C.slice(), pending:[], flash:false, since:now()-120000},
+      // Kiro is not supported (docs/kiro-integration.md): no shipped bridge reports
+      // these controls, so they are unverified; ACP has no question callback.
+      {sid:'d', agent:'kiro', capabilities:{approval:null,questions:false,reply:null,stop:null}, project:'acp-bridge', state:'running', turn:TURN_D.slice(), pending:[], flash:false, since:now()},
     ],
     cur:0, sel:-1, shownKey:'', shownAt:now(), mode:'sofa', net:'up', scroll:0, sheetScroll:0, sheetHidden:false,
     list:{open:false, cursor:0, confirm:null, tooltip:false},
@@ -509,27 +519,34 @@ function turnHtml(s){
     : `<div class="item"><div class="who ${it.who}">${it.who==='you'?'YOU':'AGENT'}</div><div class="${it.who==='you'?'utext':'ctext'}">${esc(it.text)}</div></div>`).join('')
     + (s.state==='waiting' && S.mode==='desk' ? `<div class="tool" style="color:var(--teal)">Desk mode is on, so the agent asked on your computer. Press ${G.t} to send decisions here.</div>` : '');
 }
-// Capability values are illustrative; Codex control paths still need integration validation.
+// Capability values are illustrative; Codex control paths still need integration validation, and Kiro is not supported.
 const CAPABILITIES = [
   ['approval','Approvals','Read a request and allow or deny it.'],
   ['questions','Questions','Choose options or type an answer.'],
   ['reply','Replies','Send a message to continue an idle session.'],
   ['stop','Stop','Ask the session to stop its current turn.'],
 ];
+const AGENT_LABEL = {claude:'Claude Code', codex:'Codex', kiro:'Kiro'};
+// Agents whose session-list mark ships as a pre-generated PNG (tools/make_agent_icons.py),
+// matching what the Vita app loads from app0:icons/. Others draw the generator's SVG mark.
+const AGENT_PNG = {kiro:'assets/agents/kiro.png'};
 function agentIcon(agent){
-  const shape=agent==='codex'
+  const png = AGENT_PNG[agent];
+  if (png) return `<img class="agent-icon ${agent}" src="${png}" width="24" height="24" role="img" alt="${AGENT_LABEL[agent]||agent}">`;
+  const shape = agent==='codex'
     ? Array.from({length:6},(_,i)=>`<path transform="rotate(${i*60} 12 12)" d="M12 3.5C16 1.5 20 5 18 9L12 12L8 9.7V5.3Z"/>`).join('')
     : Array.from({length:12},(_,i)=>`<path transform="rotate(${i*30} 12 12)" d="M12 3v6"/>`).join('');
-  return `<svg class="agent-icon ${agent}" viewBox="0 0 24 24" role="img" aria-label="${agent==='codex'?'Codex':'Claude Code'}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${shape}</svg>`;
+  return `<svg class="agent-icon ${agent}" viewBox="0 0 24 24" role="img" aria-label="${AGENT_LABEL[agent]||agent}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${shape}</svg>`;
 }
 function capabilitiesHtml(){
   const session=S.sessions[S.list.cursor];
   if(!session) return '';
-  const codex=session.agent==='codex';
-  return `<div class="cap-tooltip" data-theme="${codex?'codex':'claude'}" role="dialog" aria-modal="true" aria-label="Session capabilities"><div class="box">
+  const theme = session.agent==='codex' ? 'codex' : session.agent==='kiro' ? 'kiro' : 'claude';
+  const label = AGENT_LABEL[session.agent] || 'Claude Code';
+  return `<div class="cap-tooltip" data-theme="${theme}" role="dialog" aria-modal="true" aria-label="Session capabilities"><div class="box">
     <div class="title">${esc(session.project)} · Capabilities</div>
-    <div class="intro">${codex?'Codex':'Claude Code'} · Available controls for this session.</div>
-    ${CAPABILITIES.map(([key,label,desc])=>{const supported=session.capabilities[key]===true;return `<div class="cap-row"><span class="name">${label}</span><span class="desc">${desc}</span><span class="value ${supported?'':'unknown'}">${supported?'SUPPORTED':'UNVERIFIED'}</span></div>`;}).join('')}
+    <div class="intro">${label} · Available controls for this session.</div>
+    ${CAPABILITIES.map(([key,label,desc])=>{const cap=session.capabilities[key];const supported=cap===true;const unsupported=cap===false;return `<div class="cap-row"><span class="name">${label}</span><span class="desc">${desc}</span><span class="value ${supported?'':'unknown'}">${supported?'SUPPORTED':unsupported?'NOT SUPPORTED':'UNVERIFIED'}</span></div>`;}).join('')}
     <div class="dismiss">PRESS ANY BUTTON TO CLOSE</div></div></div>`;
 }
 function listHtml(){

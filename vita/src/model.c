@@ -209,7 +209,8 @@ Session *model_find(Model *m, const char *sid) {
 }
 
 const char *agent_name(AgentKind agent) {
-    return agent == AGENT_CODEX ? "Codex" : agent == AGENT_CLAUDE ? "Claude Code" : "Agent";
+    return agent == AGENT_CODEX ? "Codex" : agent == AGENT_CLAUDE ? "Claude Code" :
+           agent == AGENT_KIRO ? "Kiro" : "Agent";
 }
 
 Capability session_capability(const Session *s, CapabilityKind kind) {

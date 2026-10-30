@@ -77,6 +77,7 @@ bool protocol_parse_status(const char *json, size_t len, StatusMsg *out) {
     if (cJSON_IsString(agent)) {
         if (!strcmp(agent->valuestring, "claude")) out->agent = AGENT_CLAUDE;
         else if (!strcmp(agent->valuestring, "codex")) out->agent = AGENT_CODEX;
+        else if (!strcmp(agent->valuestring, "kiro")) out->agent = AGENT_KIRO;
     } else if (agent) ok = false;
     const cJSON *caps = cJSON_GetObjectItemCaseSensitive(root, "capabilities");
     out->capabilities_present = caps != NULL;

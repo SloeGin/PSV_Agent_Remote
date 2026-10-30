@@ -14,23 +14,24 @@ static int n_draws, n_icon_lines;
 static int icon_draws, icon_loads, icon_frees;
 static unsigned icon_pool_used;
 static bool missing_icons;
-static vita2d_texture icons[2] = {{AGENT_CLAUDE}, {AGENT_CODEX}};
+static vita2d_texture icons[3] = {{AGENT_CLAUDE}, {AGENT_CODEX}, {AGENT_KIRO}};
 
 vita2d_texture *vita2d_load_PNG_file(const char *path) {
     icon_loads++;
     if (missing_icons) return NULL;
     if (!strcmp(path, "app0:icons/claude.png")) return &icons[0];
-    CHECK_STR(path, "app0:icons/codex.png");
-    return &icons[1];
+    if (!strcmp(path, "app0:icons/codex.png")) return &icons[1];
+    CHECK_STR(path, "app0:icons/kiro.png");
+    return &icons[2];
 }
 
 void vita2d_free_texture(vita2d_texture *texture) {
-    CHECK(texture == &icons[0] || texture == &icons[1]);
+    CHECK(texture == &icons[0] || texture == &icons[1] || texture == &icons[2]);
     icon_frees++;
 }
 
 void vita2d_draw_texture(const vita2d_texture *texture, float x, float y) {
-    CHECK(texture == &icons[0] || texture == &icons[1]);
+    CHECK(texture == &icons[0] || texture == &icons[1] || texture == &icons[2]);
     CHECK(x >= 0 && x + 24 <= SCREEN_W);
     icon_draws++;
     icon_pool_used += 4 * 20; /* SDK texture quad: 4 texture vertices */
@@ -233,7 +234,7 @@ static void t_full_codex_list_fits_frame_pool(void) {
                 ui_draw_sessions(&m, &l, &v, 0);
                 CHECK(icon_draws > 0 && n_icon_lines == 0);
                 CHECK(icon_pool_used < 1024); /* <1 KiB, formerly >0.8 MiB per icon */
-                CHECK(icon_loads == 2); /* never decode/allocate textures per frame */
+                CHECK(icon_loads == 3); /* never decode/allocate textures per frame */
             }
         }
     }
@@ -242,7 +243,7 @@ static void t_full_codex_list_fits_frame_pool(void) {
 
 static void t_missing_artwork_falls_back_without_vector_drawing(void) {
     ui_fini();
-    CHECK(icon_frees == 2);
+    CHECK(icon_frees == 3);
     missing_icons = true;
     CHECK(ui_init());
     Model m;
@@ -257,7 +258,7 @@ static void t_missing_artwork_falls_back_without_vector_drawing(void) {
     CHECK(text_is("CX", RGBA8(0x96,0x9b,0x77,255)));
     model_free(&m);
     ui_fini();
-    CHECK(icon_frees == 2); /* NULL texture is never freed or drawn */
+    CHECK(icon_frees == 3); /* NULL texture is never freed or drawn */
 }
 
 int main(void) {

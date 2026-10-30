@@ -91,6 +91,7 @@ vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
   FILE assets/mono-medium.ttf fonts/mono-medium.ttf
   FILE assets/agents/claude.png icons/claude.png
   FILE assets/agents/codex.png icons/codex.png
+  FILE assets/agents/kiro.png icons/kiro.png
   FILE sce_sys/icon0.png sce_sys/icon0.png
   FILE sce_sys/livearea/contents/bg.png sce_sys/livearea/contents/bg.png
   FILE sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png

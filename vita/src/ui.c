@@ -13,7 +13,7 @@
 #include "view.h"
 
 /* Agent palettes belong to conversations/popups; app pages have their own identity. */
-typedef enum { THEME_CLAUDE, THEME_CODEX, THEME_APP } ThemeKind;
+typedef enum { THEME_CLAUDE, THEME_CODEX, THEME_KIRO, THEME_APP } ThemeKind;
 typedef struct {
     unsigned bg, panel, bar, sheet, hintbg, line, line2, tabon, text, text2, muted, dim, brand;
 } Theme;
@@ -47,6 +47,21 @@ static const Theme g_themes[] = {
         .muted = RGBA8(0x8D, 0xA9, 0x9A, 0xFF),
         .dim = RGBA8(0x59, 0x74, 0x66, 0xFF),
         .brand = RGBA8(0x10, 0xA3, 0x7F, 0xFF),
+    },
+    {
+        .bg = RGBA8(0x12, 0x0F, 0x17, 0xFF),
+        .panel = RGBA8(0x19, 0x14, 0x1F, 0xFF),
+        .bar = RGBA8(0x1B, 0x15, 0x24, 0xFF),
+        .sheet = RGBA8(0x17, 0x12, 0x21, 0xFF),
+        .hintbg = RGBA8(0x0F, 0x0C, 0x15, 0xFF),
+        .line = RGBA8(0x32, 0x27, 0x45, 0xFF),
+        .line2 = RGBA8(0x26, 0x1D, 0x35, 0xFF),
+        .tabon = RGBA8(0x2A, 0x21, 0x40, 0xFF),
+        .text = RGBA8(0xEC, 0xE7, 0xF5, 0xFF),
+        .text2 = RGBA8(0xC9, 0xBE, 0xDD, 0xFF),
+        .muted = RGBA8(0x9A, 0x8D, 0xB0, 0xFF),
+        .dim = RGBA8(0x64, 0x58, 0x77, 0xFF),
+        .brand = RGBA8(0xA7, 0x8B, 0xFA, 0xFF),
     },
     {
         .bg = RGBA8(0x15, 0x17, 0x0F, 0xFF),
@@ -209,18 +224,19 @@ static float g_sheet_y = SCREEN_H;
 static float g_reply_y = SCREEN_H; /* top of the reply drawer, animated */
 static char g_sheet_rid[24];
 
-static vita2d_texture *g_agent_icons[2];
+static vita2d_texture *g_agent_icons[3];
 
 bool ui_init(void) {
     vita2d_set_clear_color(C_BG);
     if (!gfx_init()) return false;
     g_agent_icons[AGENT_CLAUDE] = vita2d_load_PNG_file("app0:icons/claude.png");
     g_agent_icons[AGENT_CODEX] = vita2d_load_PNG_file("app0:icons/codex.png");
+    g_agent_icons[AGENT_KIRO] = vita2d_load_PNG_file("app0:icons/kiro.png");
     return true; /* Missing optional artwork gets a safe text fallback. */
 }
 
 void ui_fini(void) {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         if (g_agent_icons[i]) vita2d_free_texture(g_agent_icons[i]);
         g_agent_icons[i] = NULL;
     }
@@ -1391,7 +1407,8 @@ static void draw_overlays(const UiView *v, uint64_t now) {
 
 static const Theme *agent_theme(const Session *s) {
     return &g_themes[!s || s->agent == AGENT_UNKNOWN ? THEME_APP :
-                     s->agent == AGENT_CODEX ? THEME_CODEX : THEME_CLAUDE];
+                     s->agent == AGENT_CODEX ? THEME_CODEX :
+                     s->agent == AGENT_KIRO ? THEME_KIRO : THEME_CLAUDE];
 }
 
 static void use_app_theme(void) {
@@ -1458,10 +1475,11 @@ static void state_label(const Session *s, uint64_t now, char *out, size_t cap) {
 
 /* Agent marks are confined to the session list. */
 static void draw_agent_icon(AgentKind agent, int cx, int cy) {
-    if ((agent == AGENT_CLAUDE || agent == AGENT_CODEX) && g_agent_icons[agent])
+    if ((agent == AGENT_CLAUDE || agent == AGENT_CODEX || agent == AGENT_KIRO) && g_agent_icons[agent])
         vita2d_draw_texture(g_agent_icons[agent], cx - 12, cy - 12);
     else gfx_text(F_MONO, cx - 8, cy - 7, C_MUTED, 12,
-                  agent == AGENT_CLAUDE ? "CL" : agent == AGENT_CODEX ? "CX" : "?", -1);
+                  agent == AGENT_CLAUDE ? "CL" : agent == AGENT_CODEX ? "CX" :
+                  agent == AGENT_KIRO ? "KI" : "?", -1);
 }
 
 static void draw_capabilities(const Model *m, const SessionList *l) {
