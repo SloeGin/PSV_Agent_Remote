@@ -1553,8 +1553,12 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
     vita2d_disable_clipping();
 
     const char *confirm_project = NULL;
+    bool confirm_kiro = false; /* the Vita is a Kiro session's only interface: removing ends it */
     for (int i = 0; l->confirming && i < m->n; i++)
-        if (!strcmp(m->s[i].sid, l->confirm_sid)) confirm_project = m->s[i].project;
+        if (!strcmp(m->s[i].sid, l->confirm_sid)) {
+            confirm_project = m->s[i].project;
+            confirm_kiro = m->s[i].agent == AGENT_KIRO;
+        }
     if (l->tooltip) {
         draw_capabilities(m, l);
     } else if (confirm_project) {
@@ -1563,11 +1567,15 @@ void ui_draw_sessions(const Model *m, const SessionList *l, const UiView *v, uin
         int bw = 540, bh = 168, bx = (SCREEN_W - bw) / 2, by = (SCREEN_H - bh) / 2 - 20;
         gfx_panel(bx, by, bw, bh, 12, C_LINE, C_BAR);
         char t[128];
-        snprintf(t, sizeof t, "Remove %s from the list?", confirm_project);
+        snprintf(t, sizeof t, confirm_kiro ? "End the Kiro session in %s?" : "Remove %s from the list?", confirm_project);
         text_fit(F_SANS, bx + 20, by + 18, C_TEXT, 19, t, bw - 40, false);
-        gfx_text(F_SANS, bx + 20, by + 54, C_MUTED, 14, "It comes back the next time the agent reports from that", -1);
-        gfx_text(F_SANS, bx + 20, by + 75, C_MUTED, 14, "session. Nothing on your computer changes.", -1);
-        const char *labels[2] = {"Keep", "Remove"};
+        if (confirm_kiro) {
+            gfx_text(F_SANS, bx + 20, by + 54, C_MUTED, 14, "This ends the conversation on the computer.", -1);
+        } else {
+            gfx_text(F_SANS, bx + 20, by + 54, C_MUTED, 14, "It comes back the next time the agent reports from that", -1);
+            gfx_text(F_SANS, bx + 20, by + 75, C_MUTED, 14, "session. Nothing on your computer changes.", -1);
+        }
+        const char *labels[2] = {"Keep", confirm_kiro ? "End" : "Remove"};
         for (int i = 0; i < 2; i++) {
             int w = (bw - 50) / 2, x = bx + 20 + i * (w + 10), y = by + bh - 58, h = 42;
             bool on = i == l->confirm_sel;

@@ -261,7 +261,37 @@ static void t_missing_artwork_falls_back_without_vector_drawing(void) {
     CHECK(icon_frees == 3); /* NULL texture is never freed or drawn */
 }
 
+static bool text_seen(const char *text) {
+    for (int i = 0; i < n_draws; i++)
+        if (!strcmp(draws[i].text, text)) return true;
+    return false;
+}
+
+static void t_kiro_remove_dialog_says_end(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    session(&m, "kiro-a", "{\"state\":\"idle\",\"agent\":\"kiro\",\"project\":\"infra\"}");
+    session(&m, "codex-b", "{\"state\":\"idle\",\"agent\":\"codex\",\"project\":\"notes\"}");
+    SessionList l;
+    list_open(&l, &m);
+    UiView v = {.net=NET_UP, .battery_pct=-1};
+    l.confirming = true;
+    snprintf(l.confirm_sid, sizeof l.confirm_sid, "%s", "kiro-a");
+    n_draws = 0;
+    ui_draw_sessions(&m, &l, &v, 0);
+    CHECK(text_seen("End the Kiro session in infra?"));
+    CHECK(text_seen("This ends the conversation on the computer."));
+    CHECK(text_seen("Keep") && text_seen("End") && !text_seen("Remove"));
+    snprintf(l.confirm_sid, sizeof l.confirm_sid, "%s", "codex-b");
+    n_draws = 0;
+    ui_draw_sessions(&m, &l, &v, 0);
+    CHECK(text_seen("Remove notes from the list?") && text_seen("Remove"));
+    CHECK(!text_seen("End the Kiro session in notes?"));
+    model_free(&m);
+}
+
 int main(void) {
+    RUN(t_kiro_remove_dialog_says_end);
     CHECK(ui_init());
     RUN(t_theme_switch_preserves_semantic_colors_and_body);
     RUN(t_list_icons_and_modal_capabilities);
