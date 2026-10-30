@@ -30,13 +30,16 @@ def _log(text: str) -> None:
 
 
 def main() -> None:
-    from psv_remote.bus import open_bus
+    from psv_remote.adapters.claude import connect_budget_s
+    from psv_remote.bus import open_bus, open_bus_within
     from psv_remote.config import load_config
     from psv_remote.handlers import handle_event
 
     event = json.loads(sys.stdin.buffer.read())
     cfg = load_config()
-    out = handle_event(event, lambda: open_bus(cfg), cfg, os.environ)
+    budget = connect_budget_s(str(event.get("hook_event_name")))
+    connect = (lambda: open_bus(cfg)) if budget is None else (lambda: open_bus_within(cfg, budget))
+    out = handle_event(event, connect, cfg, os.environ)
     if out is not None:
         sys.stdout.write(json.dumps(out, ensure_ascii=False) + "\n")
         sys.stdout.flush()

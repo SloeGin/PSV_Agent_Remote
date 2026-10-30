@@ -1,5 +1,6 @@
 """Thin MQTT layer. Handlers depend only on the Bus protocol; tests use a fake."""
 
+import dataclasses
 import queue
 import socket
 import threading
@@ -136,3 +137,30 @@ class PahoBus:
 
 def open_bus(cfg: Config) -> Bus:
     return PahoBus(cfg)
+
+
+RETRY_PAUSE_S = 0.2
+
+
+def connect_within(attempt, budget_s: float, per_try_s: float, clock=time.monotonic, sleep=time.sleep):
+    """Call attempt(timeout_s) until it returns a bus or budget_s is spent.
+
+    A slow or lossy network can miss one connect timeout and make the next; a
+    hook has a few seconds to spare before Claude Code kills it. Raises the
+    last BusError when the budget runs out.
+    """
+    deadline = clock() + budget_s
+    while True:
+        remaining = deadline - clock()
+        try:
+            return attempt(min(per_try_s, remaining))
+        except BusError:
+            if deadline - clock() <= RETRY_PAUSE_S:
+                raise
+            sleep(RETRY_PAUSE_S)
+
+
+def open_bus_within(cfg: Config, budget_s: float) -> Bus:
+    """open_bus, retrying within budget_s; each try keeps cfg.connect_timeout_s."""
+    return connect_within(lambda timeout_s: PahoBus(dataclasses.replace(cfg, connect_timeout_s=timeout_s)),
+                          budget_s, cfg.connect_timeout_s)

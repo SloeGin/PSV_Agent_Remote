@@ -63,3 +63,50 @@ def test_reply_topics():
     from psv_remote import topics
     assert topics.reply("s1") == "claude/session/s1/reply"
     assert topics.reply_state("s1") == "claude/session/s1/reply_state"
+
+
+# ---- connecting within a time budget (a slow or flaky network) ----
+
+from psv_remote.bus import connect_within  # noqa: E402
+
+
+def test_connect_within_retries_until_it_connects():
+    t = [0.0]
+    tries = []
+
+    def attempt(timeout_s):
+        tries.append(timeout_s)
+        t[0] += timeout_s  # each failed try uses up its whole timeout
+        if len(tries) < 3:
+            raise BusError("timed out")
+        return "bus"
+
+    assert connect_within(attempt, 10.0, per_try_s=2.0, clock=lambda: t[0], sleep=lambda s: t.__setitem__(0, t[0] + s)) == "bus"
+    assert tries == [2.0, 2.0, 2.0]
+
+
+def test_connect_within_never_overruns_the_budget():
+    t = [0.0]
+    tries = []
+
+    def attempt(timeout_s):
+        tries.append(timeout_s)
+        t[0] += timeout_s
+        raise BusError("timed out")
+
+    with pytest.raises(BusError):
+        connect_within(attempt, 4.0, per_try_s=2.0, clock=lambda: t[0], sleep=lambda s: t.__setitem__(0, t[0] + s))
+    assert sum(tries) <= 4.0 and t[0] <= 4.0 + 1e-9
+    assert len(tries) >= 2  # it did try again instead of giving up after one timeout
+
+
+def test_connect_within_one_try_for_a_small_budget():
+    tries = []
+
+    def attempt(timeout_s):
+        tries.append(timeout_s)
+        raise BusError("refused")
+
+    with pytest.raises(BusError):
+        connect_within(attempt, 0.5, per_try_s=2.0, clock=lambda: 0.0 if not tries else 1.0, sleep=lambda s: None)
+    assert tries == [0.5]

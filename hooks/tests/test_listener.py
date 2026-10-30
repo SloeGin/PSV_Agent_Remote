@@ -254,3 +254,43 @@ def test_retired_listener_does_not_deliver(tmp_path):
     bus.retained[REPLY] = rp("a", "text", "x")
     assert run(lambda: bus, SID, cfg_for(tmp_path), 4242, deadline=1e9, sleep=lambda s: None) is None
     assert states(bus) == []
+
+
+def test_run_publishes_updates_a_hook_could_not_deliver(tmp_path):
+    from psv_remote import deferred
+    deferred.save(tmp_path, SID, [(STATUS, st("idle")), (topics.turn(SID), b'{"items": []}')])
+    bus = FakeBus()
+    t = [0.0]
+
+    def clock():
+        t[0] += 1.0
+        return t[0]
+
+    assert run(lambda: bus, SID, cfg_for(tmp_path), 1, deadline=5.0, clock=clock, sleep=lambda s: None) is None
+    assert json.loads(bus.retained[STATUS])["state"] == "idle"
+    assert topics.turn(SID) in bus.retained
+    assert deferred.take(tmp_path, SID) == []
+
+
+def test_failed_flush_keeps_updates_without_clobbering_newer_ones(tmp_path):
+    from psv_remote import deferred
+    from psv_remote.listener import _flush_deferred
+
+    class DropsMidway(FakeBus):
+        def publish(self, topic, payload, retain=False, qos=0):
+            deferred.save(tmp_path, SID, [(STATUS, st("running"))])  # a hook saved something newer meanwhile
+            raise BusError("connection lost")
+
+    deferred.save(tmp_path, SID, [(STATUS, st("idle"))])
+    with pytest.raises(BusError):
+        _flush_deferred(DropsMidway(), tmp_path, SID)
+    assert [json.loads(p)["state"] for _, p in deferred.take(tmp_path, SID)] == ["running"]
+
+
+def test_failed_flush_keeps_updates_for_the_next_connection(tmp_path):
+    from psv_remote import deferred
+    from psv_remote.listener import _flush_deferred
+    deferred.save(tmp_path, SID, [(STATUS, st("idle"))])
+    with pytest.raises(BusError):
+        _flush_deferred(FlakyBus(), tmp_path, SID)
+    assert [json.loads(p)["state"] for _, p in deferred.take(tmp_path, SID)] == ["idle"]

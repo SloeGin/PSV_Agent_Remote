@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from . import topics
+from . import deferred, topics
 from .bus import Bus, BusError
 from .config import Config
 from .pending import _safe
@@ -148,6 +148,17 @@ class Listener:
 BACKOFF_MAX_S = 30
 
 
+def _flush_deferred(bus: Bus, state_dir: Path, sid: str) -> None:
+    """Publish what a hook saved because it couldn't reach the broker in time."""
+    publishes = deferred.take(state_dir, sid)
+    try:
+        for topic, payload in publishes:
+            bus.publish(topic, payload, retain=True, qos=1)
+    except BusError:
+        deferred.restore(state_dir, sid, publishes)  # try again after reconnecting
+        raise
+
+
 def run(bus_factory: Callable[[], Bus], sid: str, cfg: Config, pid: int, deadline: float,
         clock: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] = time.sleep) -> str | None:
     """Listen until a reply can be delivered (returns its framed text) or this
@@ -174,6 +185,7 @@ def run(bus_factory: Callable[[], Bus], sid: str, cfg: Config, pid: int, deadlin
             while clock() < deadline:
                 if pid_file(state_dir, sid).read_text().strip() != str(pid):
                     return None
+                _flush_deferred(bus, state_dir, sid)
                 got = bus.next_message(1.0)
                 if got is None:
                     continue

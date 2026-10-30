@@ -371,3 +371,43 @@ def test_prompt_from_rewake_wrapper(bus, cfg):
     handle_event(ev_named("UserPromptSubmit", prompt=wrapped), lambda: bus, cfg, {})
     turn = json.loads(bus.retained["claude/session/s1/turn"])
     assert turn["items"] == [{"k": "you", "t": "commit"}]
+
+
+def test_connect_budget_fits_each_hook_timeout():
+    from psv_remote.adapters.claude import connect_budget_s
+    for name in ("Stop", "SessionStart", "UserPromptSubmit", "Notification"):
+        assert connect_budget_s(name) == 4.0  # within the installer's 5 s hook timeout
+    assert connect_budget_s("PostToolUse") is None  # runs on every tool call: one try, as before
+    assert connect_budget_s("SessionEnd") is None  # its hook timeout is 3 s
+    for name in ("PermissionRequest", "PreToolUse"):
+        assert connect_budget_s(name) is None  # a down broker must not delay the computer's own dialog
+
+
+# ---- a status the hook can't deliver is handed to the session's listener ----
+
+from psv_remote import deferred  # noqa: E402
+
+
+def test_stop_offline_defers_idle_and_turn(cfg, tmp_path):
+    t = tmp_path / "t.jsonl"
+    t.write_text(json.dumps({"type": "user", "message": {"role": "user", "content": "do it"},
+                             "origin": {"kind": "human"}}) + "\n")
+    ev = ev_named("Stop", transcript_path=str(t), last_assistant_message="Done.")
+    assert handle_event(ev, factory_failing, cfg, {}) is None
+    saved = dict(deferred.take(cfg.state_dir, "s1"))
+    assert json.loads(saved[STATUS])["state"] == "idle"
+    assert json.loads(saved["claude/session/s1/turn"])["items"][-1] == {"k": "claude", "t": "Done."}
+    assert deferred.take(cfg.state_dir, "s1") == []  # taken once
+
+
+def test_delivered_status_drops_a_stale_deferred_one(bus, cfg):
+    deferred.save(cfg.state_dir, "s1", [(STATUS, b'{"state": "idle"}')])
+    handle_event(ev_named("UserPromptSubmit", prompt="next"), lambda: bus, cfg, {})
+    assert deferred.take(cfg.state_dir, "s1") == []  # the newer state reached the broker itself
+
+
+def test_approval_offline_defers_nothing(cfg):
+    ev = {"hook_event_name": "PermissionRequest", "session_id": "s1", "cwd": "/x/proj",
+          "tool_name": "Bash", "tool_input": {"command": "ls"}}
+    handle_event(ev, factory_failing, cfg, {})
+    assert deferred.take(cfg.state_dir, "s1") == []

@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Mapping
 
-from .. import topics
+from .. import deferred, topics
 from ..bus import Bus, BusError
 from ..config import Config
 from ..decision import build_options, decision_output, question_output
@@ -162,6 +162,30 @@ def _wants_bus(event: dict) -> bool:
     return name == "PermissionRequest" or name in _STATUS_EVENTS
 
 
+def _defer_status(event: dict, cfg: Config, env: Mapping[str, str], stopped: str | None) -> None:
+    """Work out what this status event would publish and save it for the listener."""
+    offline = deferred.RecordingBus()
+    _status_event(event, offline, cfg, env)
+    if stopped is not None:
+        _publish_stopped(offline, event["session_id"], stopped)
+    if offline.publishes:
+        try:
+            deferred.save(cfg.state_dir, event["session_id"], offline.publishes)
+        except OSError:
+            pass  # best effort: the hook's own output must still reach Claude Code
+
+
+def connect_budget_s(event_name: str) -> float | None:
+    """How long a hook may keep trying to reach the broker, inside its install timeout.
+
+    Status events get extra tries: a lost Stop leaves the Vita showing the session
+    as working. None means a single try, as before: PostToolUse (it runs on every
+    tool call), SessionEnd (its hook timeout is 3 s) and approvals (a down broker
+    must not delay Claude Code's own dialog).
+    """
+    return 4.0 if event_name in ("SessionStart", "UserPromptSubmit", "Stop", "Notification") else None
+
+
 def handle_event(event: dict, bus_factory: Callable[[], Bus], cfg: Config,
                  env: Mapping[str, str]) -> dict | None:
     name = event.get("hook_event_name")
@@ -180,9 +204,12 @@ def handle_event(event: dict, bus_factory: Callable[[], Bus], cfg: Config,
         rid = _take_stop_flag(cfg, event["session_id"])
         if rid is not None:
             return _hard_stop(event, bus_factory, env, rid)
+    status_event = name not in ("PermissionRequest", "PreToolUse")
     try:
         bus = bus_factory()
     except BusError:
+        if status_event:  # the session's listener delivers it once the broker is reachable
+            _quietly(_defer_status, event, cfg, env, stopped)
         return intro
     try:
         if name == "PermissionRequest":
@@ -192,6 +219,7 @@ def handle_event(event: dict, bus_factory: Callable[[], Bus], cfg: Config,
         _status_event(event, bus, cfg, env)
         if stopped is not None:
             _publish_stopped(bus, event["session_id"], stopped)
+        deferred.clear(cfg.state_dir, event["session_id"])  # anything saved earlier is now stale
         return intro
     except BusError:
         return intro
