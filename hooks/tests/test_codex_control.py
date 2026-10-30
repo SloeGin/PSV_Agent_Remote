@@ -72,3 +72,62 @@ def test_client_reconstructs_manager_settings_including_paths_with_spaces(tmp_pa
     args = manager_arguments("host", options)
     assert "--lease-managed" in args and str(tmp_path / "socket path") in args
     assert configuration_key(Config(), "host", options) == configuration_key(Config(), "host", dict(reversed(list(options.items()))))
+
+
+# ---- a manager with other settings: take it over when unused, otherwise say what differs ----
+
+from psv_remote.codex_control import configuration_summary  # noqa: E402
+from psv_remote.vscode_client import resolve_conflict  # noqa: E402
+
+OPTIONS = dict(ipc_path=None, database=None, app_paths=[], cwd=None, limit=16)
+
+
+def test_manager_reports_its_settings(tmp_path):
+    cfg = Config(state_dir=tmp_path, broker_host="10.0.0.5", broker_port=1883)
+    summary = configuration_summary(cfg, "host", OPTIONS)
+    assert summary["broker"] == "10.0.0.5:1883" and summary["host ID"] == "host"
+    control = ManagerControl(cfg, "host", "key", managed=True, settings=summary)
+    try:
+        assert request(cfg, "host")["settings"] == summary
+    finally:
+        control.close()
+
+
+def mine():
+    return configuration_summary(Config(broker_host="10.0.0.5"), "host", OPTIONS)
+
+
+def theirs(**changes):
+    return {**configuration_summary(Config(broker_host="192.168.1.20"), "host", OPTIONS), **changes}
+
+
+def test_unused_extension_manager_is_replaced():
+    state = {"mode": "extension", "windows": 0, "settings": theirs()}
+    assert resolve_conflict(state, mine(), replace=False) == ("replace", None)
+
+
+def test_manager_in_use_by_another_window_is_left_alone_and_explained():
+    state = {"mode": "extension", "windows": 1, "settings": theirs()}
+    action, message = resolve_conflict(state, mine(), replace=False)
+    assert action == "conflict"
+    assert "Another VS Code window" in message
+    assert "broker 192.168.1.20:1883" in message and "this window uses 10.0.0.5:1883" in message
+    assert "Reconnect" in message
+
+
+def test_reconnect_takes_over_even_when_in_use():
+    state = {"mode": "extension", "windows": 2, "settings": theirs()}
+    assert resolve_conflict(state, mine(), replace=True) == ("replace", None)
+
+
+def test_manually_started_manager_is_never_replaced():
+    state = {"mode": "persistent", "windows": 0, "settings": theirs()}
+    for replace in (False, True):
+        action, message = resolve_conflict(state, mine(), replace=replace)
+        assert action == "conflict"
+        assert "started outside VS Code" in message and "broker 192.168.1.20:1883" in message
+
+
+def test_older_manager_without_settings_still_gets_a_message():
+    action, message = resolve_conflict({"mode": "persistent", "windows": 0}, mine(), replace=False)
+    assert action == "conflict" and "different settings" in message

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .codex_discovery import AppServerDiscovery, IPCDiscovery
-from .codex_control import ManagerControl, configuration_key
+from .codex_control import ManagerControl, configuration_key, configuration_summary
 from .rpc import DependencyError, NativeError
 from .remote import scoped_session_id
 
@@ -150,7 +150,8 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
     control = None
     count = None
     try:
-        control = ManagerControl(cfg, host_id, configuration_key(cfg, host_id, options), lease_managed)
+        control = ManagerControl(cfg, host_id, configuration_key(cfg, host_id, options), lease_managed,
+                                 configuration_summary(cfg, host_id, options))
         while not control.should_stop():
             routes = [route for slot in slots for route in slot.scan()]
             supervisor.reconcile(routes)

@@ -23,6 +23,20 @@ def configuration_key(cfg, host_id, options):
     return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
 
 
+def configuration_summary(cfg, host_id, options) -> dict[str, str]:
+    """The settings configuration_key() hashes, readable, for explaining a mismatch."""
+    return {
+        "broker": f"{cfg.broker_host}:{cfg.broker_port}",
+        "host ID": host_id,
+        "approval timeout": f"{cfg.wait_timeout_s:g} s",
+        "IPC socket": str(options["ipc_path"]) if options.get("ipc_path") is not None else "off",
+        "state database": str(options["database"]) if options.get("database") is not None else "default",
+        "App Server sockets": ", ".join(str(p) for p in options.get("app_paths") or []) or "none",
+        "workspace": str(options["cwd"]) if options.get("cwd") is not None else "any",
+        "max sessions": str(options.get("limit")),
+    }
+
+
 class Leases:
     def __init__(self, managed=False, clock=time.monotonic):
         self.managed, self.clock = managed, clock
@@ -47,8 +61,9 @@ class Leases:
 
 
 class ManagerControl:
-    def __init__(self, cfg, host_id, key, managed=False):
+    def __init__(self, cfg, host_id, key, managed=False, settings=None):
         self.path = control_path(cfg, host_id)
+        self.settings = settings
         self.token, self.run_id = secrets.token_hex(32), secrets.token_hex(16)
         self.key = key
         self.stop = threading.Event()
@@ -115,7 +130,8 @@ class ManagerControl:
     def state(self):
         return {"protocol": 1, "run_id": self.run_id, "pid": os.getpid(), "mode": self.mode,
                 "configuration": self.key, "bridges": self.bridges, "discovered": self.discovered,
-                "windows": len(self.leases.clients)}
+                "windows": len(self.leases.clients),
+                **({"settings": self.settings} if self.settings is not None else {})}
 
     def update(self, bridges, discovered):
         with self.lock:

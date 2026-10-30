@@ -57,9 +57,16 @@ after a short grace period and cleans up its bridge processes. A crashed window'
 connection expires automatically. No OS login service is installed.
 
 An independently launched, compatible persistent manager can be reused. Closing
-VS Code does not stop that manager. A manager with different settings is reported
-as a conflict rather than silently replacing a manually started process. Stop
-older managers once when migrating to this extension.
+VS Code does not stop that manager.
+
+If a manager with different settings is already running (for example after you
+change the broker or update the extension):
+
+- An extension-owned manager that no window is using is replaced automatically.
+- One that another window is using is left alone, and the status names the
+  settings that differ. Make the settings match, or run **Reconnect** to take it
+  over.
+- A manually started manager is never replaced. Stop it, then run **Reconnect**.
 
 ## Codex runtimes
 

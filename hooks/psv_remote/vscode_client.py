@@ -10,7 +10,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .codex_control import configuration_key, control_path, request
+from .codex_control import configuration_key, configuration_summary, control_path, request
 
 
 def emit(kind, **fields):
@@ -30,6 +30,31 @@ def manager_arguments(host_id, options):
     return args
 
 
+def _differences(theirs, ours) -> str:
+    if not isinstance(theirs, dict):
+        return "different settings"  # an older manager doesn't report them
+    diffs = [f"{name} {theirs.get(name, 'unknown')} (this window uses {value})"
+             for name, value in ours.items() if theirs.get(name) != value]
+    return "different settings: " + "; ".join(diffs) if diffs else "different settings"
+
+
+def resolve_conflict(state, ours, replace):
+    """A running manager has other settings: ("replace", None) or ("conflict", message).
+
+    An extension manager no window is using is simply replaced (typically left
+    over from before a settings change or an update); Reconnect (replace) takes
+    over one that is in use. A manager started outside VS Code is never stopped.
+    """
+    if state.get("mode") == "extension" and (replace or not state.get("windows")):
+        return "replace", None
+    differs = _differences(state.get("settings"), ours)
+    if state.get("mode") == "extension":
+        return "conflict", (f"Another VS Code window is using the bridge with {differs}. Make the PSV Agent "
+                            "Remote settings match, or run Reconnect here to take it over.")
+    return "conflict", (f"A bridge manager started outside VS Code is running with {differs}. Stop it "
+                        "(pkill -f \"psv_codex.py watch\"), then run Reconnect.")
+
+
 def run_client(cfg, host_id, options, replace=False):
     if not cfg.enabled:
         emit("status", state="disabled", message="Bridge disabled in the shared configuration.")
@@ -41,6 +66,7 @@ def run_client(cfg, host_id, options, replace=False):
     threading.Thread(target=stdin_closed, daemon=True).start()
     client = uuid.uuid4().hex
     key = configuration_key(cfg, host_id, options)
+    ours = configuration_summary(cfg, host_id, options)
     cfg.state_dir.mkdir(parents=True, exist_ok=True)
     logfile = control_path(cfg, host_id).with_suffix(".log")
     spawned = None
@@ -53,11 +79,11 @@ def run_client(cfg, host_id, options, replace=False):
             try:
                 state = request(cfg, host_id)
                 if state.get("configuration") != key:
-                    if replace and state.get("mode") == "extension":
+                    action, message = resolve_conflict(state, ours, replace)
+                    if action == "replace":
                         request(cfg, host_id, "stop")
                         stopped.wait(1)
                         continue
-                    message = "An existing manager uses different settings. Reconnect after stopping that manager."
                     if message != last_message: emit("log", message=message)
                     last_message = message
                     emit("status", state="conflict", message=message)
