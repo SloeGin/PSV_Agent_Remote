@@ -197,3 +197,108 @@ def test_status_bar_shows_an_unreachable_broker_instead_of_healthy_sessions():
     ok = running_status({**state, "broker": {"reachable": True, "message": ""}}, "/tmp/x.log")
     assert ok["state"] == "running" and ok["bridges"] == 2
     assert running_status({"bridges": 0, "discovered": 0, "mode": "extension"}, "/tmp/x.log")["state"] == "running"
+
+
+# ---- the manager watches the broker for the VS Code panel ----
+
+from psv_remote.codex_manager import BrokerWatch, removed_sessions  # noqa: E402
+
+
+def status(state, project, agent=None):
+    payload = {"state": state, "project": project}
+    if agent:
+        payload["agent"] = agent
+    return json.dumps(payload).encode()
+
+
+def fed(*messages):
+    watch = BrokerWatch(lambda: None)
+    for topic, payload in messages:
+        watch.feed(topic, payload)
+    return watch
+
+
+def test_watch_lists_sessions_in_order_with_agents():
+    watch = fed(("claude/session/a/status", status("idle", "zeta")),
+                ("claude/session/b/status", status("running", "beta", "codex")),
+                ("claude/session/c/status", status("waiting", "gamma", "kiro")),
+                ("claude/session/d/status", status("idle", "alpha")))
+    sessions = watch.snapshot({"b"})["sessions"]
+    assert [(s["project"], s["state"], s["agent"]) for s in sessions] == [
+        ("gamma", "waiting", "kiro"), ("beta", "running", "codex"), ("alpha", "idle", "claude"), ("zeta", "idle", "claude")]
+    assert [s["local"] for s in sessions] == [False, True, False, False]
+
+
+def test_watch_tracks_vita_online_and_mode():
+    watch = fed()
+    assert watch.snapshot(set())["vita"] == {"online": None, "mode": None}
+    watch.feed("claude/psv/online", b"1")
+    watch.feed("claude/psv/mode", b"desk")
+    assert watch.snapshot(set())["vita"] == {"online": True, "mode": "desk"}
+    watch.feed("claude/psv/online", b"0")
+    assert watch.snapshot(set())["vita"]["online"] is False
+
+
+def test_watch_drops_cleared_sessions_but_remembers_their_project():
+    watch = fed(("claude/session/a/status", status("idle", "notes")), ("claude/session/a/status", b""))
+    assert watch.snapshot(set())["sessions"] == []
+    assert watch.project_of("a") == "notes"
+
+
+def test_watch_ignores_junk():
+    watch = fed(("claude/session/a/status", b"{"), ("claude/session/a/turn", status("idle", "x")),
+                ("claude/session/b/status", b'"just a string"'))
+    assert watch.snapshot(set())["sessions"] == []
+
+
+def test_watch_caps_at_32():
+    watch = fed(*[(f"claude/session/s{i}/status", status("idle", f"p{i:02}")) for i in range(40)])
+    assert len(watch.snapshot(set())["sessions"]) == 32
+
+
+def test_watch_reports_unknown_sessions_while_disconnected():
+    def refuse():
+        raise BusError("connect failed: refused")
+    watch = BrokerWatch(refuse, clock=lambda: 0.0)
+    watch.poll()
+    assert watch.snapshot(set())["sessions"] is None
+
+
+def test_removed_lists_only_running_bridges(tmp_path):
+    (tmp_path / "codex-a.dismissed").write_text("sig")
+    (tmp_path / "codex-gone.dismissed").write_text("sig")  # its bridge isn't running: can't be restored
+    watch = fed(("claude/session/codex-a/status", status("idle", "notes")), ("claude/session/codex-a/status", b""))
+    assert removed_sessions(tmp_path, {"codex-a", "codex-b"}, watch) == [{"sid": "codex-a", "project": "notes"}]
+
+
+def test_restore_endpoint_deletes_the_dismissal(tmp_path):
+    cfg = Config(state_dir=tmp_path)
+    (tmp_path / "codex-a.dismissed").write_text("sig")
+    restored = []
+
+    def restore(sid):
+        restored.append(sid)
+        return sid == "codex-a"
+
+    control = ManagerControl(cfg, "host", "key", managed=True, restore=restore)
+    try:
+        request_with(cfg, "restore", sid="codex-a")
+        assert restored == ["codex-a"]
+        with pytest.raises(ValueError):
+            request_with(cfg, "restore", sid="codex-unknown")
+    finally:
+        control.close()
+
+
+def request_with(cfg, action, **fields):
+    descriptor = json.loads((cfg.state_dir / next(p.name for p in cfg.state_dir.glob("codex-*.watch.json"))).read_text())
+    connection = http.client.HTTPConnection("127.0.0.1", descriptor["port"], timeout=2)
+    try:
+        connection.request("POST", "/" + action, json.dumps({"run_id": descriptor["run_id"], **fields}),
+                           {"Authorization": "Bearer " + descriptor["token"], "Content-Type": "application/json"})
+        response = connection.getresponse()
+        response.read()
+        if response.status != 200:
+            raise ValueError(response.status)
+    finally:
+        connection.close()

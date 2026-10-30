@@ -61,9 +61,11 @@ class Leases:
 
 
 class ManagerControl:
-    def __init__(self, cfg, host_id, key, managed=False, settings=None):
+    def __init__(self, cfg, host_id, key, managed=False, settings=None, restore=None):
         self.path = control_path(cfg, host_id)
         self.settings = settings
+        self.restore = restore  # restore(sid) -> bool: "Show on Vita" for a removed session
+        self.panel = {}
         self.token, self.run_id = secrets.token_hex(32), secrets.token_hex(16)
         self.key = key
         self.stop = threading.Event()
@@ -96,6 +98,10 @@ class ManagerControl:
                             if not isinstance(client, str) or not 1 <= len(client) <= 64: raise ValueError("client")
                             if self.path == "/lease": control.leases.renew(client)
                             else: control.leases.release(client)
+                        elif self.path == "/restore" and self.command == "POST":
+                            sid = data.get("sid")
+                            if not isinstance(sid, str) or control.restore is None or not control.restore(sid):
+                                raise ValueError("restore")
                         elif self.path == "/stop" and self.command == "POST":
                             if control.mode != "extension": raise ValueError("persistent manager")
                             control.stop.set()
@@ -133,13 +139,16 @@ class ManagerControl:
                 "configuration": self.key, "bridges": self.bridges, "discovered": self.discovered,
                 "windows": len(self.leases.clients),
                 **({"broker": self.broker} if self.broker is not None else {}),
+                **self.panel,
                 **({"settings": self.settings} if self.settings is not None else {})}
 
-    def update(self, bridges, discovered, broker=None):
+    def update(self, bridges, discovered, broker=None, panel=None):
         with self.lock:
             self.bridges, self.discovered = bridges, discovered
             if broker is not None:
                 self.broker = broker
+            if panel is not None:
+                self.panel = panel  # vita, sessions, removed: for the VS Code panel
 
     def should_stop(self):
         with self.lock:

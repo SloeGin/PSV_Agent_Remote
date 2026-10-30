@@ -2,6 +2,7 @@
 
 import fcntl
 import hashlib
+import json
 import os
 import sqlite3
 import subprocess
@@ -14,6 +15,7 @@ from .codex_discovery import AppServerDiscovery, IPCDiscovery
 from .bus import BusError, open_bus
 from .codex_control import ManagerControl, configuration_key, configuration_summary
 from .config import DEFAULT_PATH, LEGACY_PATH
+from .pending import _safe
 from .rpc import DependencyError, NativeError
 from .remote import scoped_session_id
 
@@ -148,6 +150,97 @@ class BrokerProbe:
         return None if self.reachable is None else {"reachable": self.reachable, "message": self.message}
 
 
+SESSIONS_MAX = 32
+_STATE_ORDER = {"waiting": 0, "running": 1, "idle": 2}
+
+
+class BrokerWatch:
+    """What the Vita sees, for the VS Code panel: every session's status, and the
+    Vita's own online/mode flags. Fed from one broker subscription."""
+
+    RETRY_S = 10
+
+    def __init__(self, bus_factory, clock=time.monotonic):
+        self.bus_factory, self.clock = bus_factory, clock
+        self.bus, self.retry_at = None, 0.0
+        self.down = False  # the last connect failed or the connection dropped
+        self.sessions: dict[str, dict] = {}
+        self.projects: dict[str, str] = {}  # last known, kept after a session is cleared
+        self.online: bool | None = None
+        self.mode: str | None = None
+
+    def feed(self, topic: str, payload: bytes) -> None:
+        if topic == "claude/psv/online":
+            self.online = payload == b"1"
+        elif topic == "claude/psv/mode":
+            self.mode = payload.decode("utf-8", "replace") if payload in (b"sofa", b"desk") else None
+        elif topic.startswith("claude/session/") and topic.endswith("/status"):
+            sid = topic[len("claude/session/"):-len("/status")]
+            if not payload:
+                self.sessions.pop(sid, None)
+                return
+            try:
+                data = json.loads(payload)
+            except (ValueError, UnicodeDecodeError):
+                return
+            if not isinstance(data, dict):
+                return
+            project = str(data.get("project") or "?")
+            self.projects[sid] = project
+            self.sessions[sid] = {"sid": sid, "agent": str(data.get("agent") or "claude"),
+                                  "project": project, "state": str(data.get("state") or "unknown")}
+
+    def project_of(self, sid: str) -> str | None:
+        return self.projects.get(sid)
+
+    def poll(self) -> None:
+        """Connect when due, then drain what arrived; never blocks for long."""
+        if self.bus is None:
+            if self.clock() < self.retry_at:
+                return
+            try:
+                self.bus = self.bus_factory()
+                for topic in ("claude/session/+/status", "claude/psv/online", "claude/psv/mode"):
+                    self.bus.subscribe(topic)
+                self.down = False
+            except BusError:
+                self._drop()
+                return
+        try:
+            for _ in range(500):
+                message = self.bus.next_message(0.01)
+                if message is None:
+                    break
+                self.feed(*message)
+        except BusError:
+            self._drop()
+
+    def _drop(self) -> None:
+        if self.bus is not None:
+            try:
+                self.bus.close()
+            except Exception:
+                pass
+        self.bus, self.retry_at, self.down = None, self.clock() + self.RETRY_S, True
+        self.sessions.clear()  # retained values come again on the next subscription
+
+    def snapshot(self, local_sids: set[str]) -> dict:
+        listed = sorted(self.sessions.values(),
+                        key=lambda s: (_STATE_ORDER.get(s["state"], 3), s["project"].lower(), s["sid"]))
+        sessions = [{**s, "local": s["sid"] in local_sids} for s in listed[:SESSIONS_MAX]]
+        return {"vita": {"online": self.online, "mode": self.mode},
+                "sessions": None if self.down else sessions}
+
+    def close(self) -> None:
+        self._drop()
+
+
+def removed_sessions(state_dir: Path, running: set[str], watch: BrokerWatch) -> list[dict]:
+    """Sessions this manager bridges that were removed on the Vita (only those can be restored)."""
+    return [{"sid": sid, "project": watch.project_of(sid) or "Codex session"}
+            for sid in sorted(running) if (Path(state_dir) / f"{_safe(sid)}.dismissed").exists()]
+
+
 class DiscoverySlot:
     def __init__(self, factory, clock=time.monotonic):
         self.factory, self.clock = factory, clock
@@ -196,22 +289,34 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
     control = None
     count = None
     probe = BrokerProbe(lambda: open_bus(cfg), cfg, broker_configured())
+    watch = BrokerWatch(lambda: open_bus(cfg))
+
+    def restore(sid):  # "Show on Vita": the bridge notices the deleted dismissal
+        if sid not in supervisor.workers:
+            return False
+        (cfg.state_dir / f"{_safe(sid)}.dismissed").unlink(missing_ok=True)
+        return True
+
     try:
         control = ManagerControl(cfg, host_id, configuration_key(cfg, host_id, options), lease_managed,
-                                 configuration_summary(cfg, host_id, options))
+                                 configuration_summary(cfg, host_id, options), restore)
         while not control.should_stop():
             routes = [route for slot in slots for route in slot.scan()]
             supervisor.reconcile(routes)
             current = len(supervisor.workers)
             if probe.poll():
                 print(probe.message or f"MQTT broker reachable at {cfg.broker_host}:{cfg.broker_port}.", flush=True)
-            control.update(current, len({route.thread_id for route in routes}), broker=probe.state())
+            watch.poll()
+            running = set(supervisor.workers)
+            panel = {**watch.snapshot(running), "removed": removed_sessions(cfg.state_dir, running, watch)}
+            control.update(current, len({route.thread_id for route in routes}), broker=probe.state(), panel=panel)
             if current != count:
                 print(f"Codex manager: {current} bridge(s) running.", flush=True)
                 count = current
             control.stop.wait(2)
     finally:
         try:
+            watch.close()
             supervisor.close()
             for slot in slots:
                 slot.close()
