@@ -1,6 +1,7 @@
 {
   "name": "psv-agent-remote",
   "displayName": "PSV Agent Remote",
+  "icon": "media/icon.png",
   "description": "Connect local Codex sessions to your PlayStation Vita remote.",
   "version": "0.1.0",
   "publisher": "psv-agent-remote",

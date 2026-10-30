@@ -2,6 +2,8 @@
 !package.json
 !README.md
 !CHANGELOG.md
+!media/
+!media/icon.png
 !src/
 !src/*.js
 !runtime/

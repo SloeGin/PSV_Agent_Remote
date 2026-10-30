@@ -1,7 +1,10 @@
 """Draw the Vita icon and LiveArea images (8-bit palette PNGs, as LiveArea expects).
 
     pip install pillow
-    python tools/make_livearea.py vita/sce_sys vita/assets
+    python tools/make_livearea.py vita/sce_sys vita/assets [vscode-extension/media/icon.png]
+
+The app icon is a handheld with a chat bubble on its screen: the console talking
+to an agent. The optional third path also writes it as the VS Code extension icon.
 
 Style matches docs/mockup/branding.html: independent #DDD23B app identity.
 """
@@ -70,20 +73,35 @@ def save(img: Image.Image, path: Path) -> None:
     img.quantize(colors=128, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).save(path, optimize=True)
 
 
-def icon(fonts: Path) -> Image.Image:
-    img = Image.new("RGB", (128, 128), BG)
+def handheld(size: int, rounded: bool) -> Image.Image:
+    """The app icon on a 128-unit grid, drawn 4x and scaled down for smooth edges.
+
+    rounded=False fills the whole square (the Vita masks icons to a circle; the
+    design stays inside it); rounded=True gives transparent rounded corners.
+    """
+    scale = 4
+    k = size * scale / 128
+
+    def box(x0, y0, x1, y1):
+        return [x0 * k, y0 * k, x1 * k, y1 * k]
+
+    img = Image.new("RGBA", (size * scale, size * scale), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    for y in range(128):
-        color = tuple(round(a + (b-a) * y / 127) for a, b in zip((0x25, 0x2A, 0x17), BG))
-        d.line([(0, y), (127, y)], fill=color)
-    d.rounded_rectangle([10, 22, 117, 105], radius=12, fill=BAR, outline=LINE, width=2)
-    d.line([(25, 44), (40, 58), (25, 72)], fill=BRAND, width=5, joint="curve")
-    d.line([(49, 72), (72, 72)], fill=BRAND, width=5)
-    for x, y in [(25,44), (40,58), (25,72), (49,72), (72,72)]:
-        d.ellipse((x-2, y-2, x+2, y+2), fill=BRAND)
-    d.ellipse([97, 30, 105, 38], fill=BRAND)
-    small = ImageFont.truetype(str(fonts / "mono-medium.ttf"), 11)
-    spaced(d, (23, 96), "A//R", small, MUTED, 3)
+    if rounded:
+        d.rounded_rectangle(box(0, 0, 128, 128), radius=22 * k, fill=BG)
+    else:
+        d.rectangle(box(0, 0, 128, 128), fill=BG)
+    d.rounded_rectangle(box(14, 36, 114, 92), radius=28 * k, outline=BRAND, width=round(5 * k))  # body
+    d.rounded_rectangle(box(38, 46, 90, 82), radius=6 * k, fill=BAR, outline=LINE, width=round(2 * k))  # screen
+    d.rounded_rectangle(box(46, 56, 82, 72), radius=4 * k, fill=BRAND)  # chat bubble
+    d.polygon([(53 * k, 71 * k), (60 * k, 71 * k), (53 * k, 77 * k)], fill=BRAND)  # its tail
+    d.ellipse(box(22, 60, 30, 68), fill=LINE)  # stick
+    d.ellipse(box(98, 60, 106, 68), fill=BRAND)  # button
+    return img.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def icon(fonts: Path) -> Image.Image:
+    img = handheld(128, rounded=False).convert("RGB")
     scanlines(img)
     return img
 
@@ -123,13 +141,17 @@ def startup(fonts: Path) -> Image.Image:
     return img
 
 
-def main(sce_sys: str, fonts_dir: str) -> None:
+def main(sce_sys: str, fonts_dir: str, vscode_icon: str | None = None) -> None:
     out, fonts = Path(sce_sys), Path(fonts_dir)
     (out / "livearea/contents").mkdir(parents=True, exist_ok=True)
     save(icon(fonts), out / "icon0.png")
     save(background(fonts), out / "livearea/contents/bg.png")
     save(startup(fonts), out / "livearea/contents/startup.png")
+    if vscode_icon:
+        path = Path(vscode_icon)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handheld(256, rounded=True).save(path, optimize=True)  # full colour with alpha
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:4])
