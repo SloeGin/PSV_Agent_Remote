@@ -251,3 +251,27 @@ def test_own_status_messages_are_not_a_removal(tmp_path):
     clock[0] += 31
     bridge.tick()
     assert topics.status(sid) in bus.retained
+
+
+def test_restore_by_deleting_the_dismissal_republishes(tmp_path):
+    clock = [10.0]
+    bridge, bus, _ = idle_bridge(tmp_path, clock)
+    sid = bridge.session.sid
+    remove_on_vita(bridge, bus)
+    bridge.tick()
+    assert topics.status(sid) not in bus.retained
+    (tmp_path / f"{sid}.dismissed").unlink()  # "Show on Vita"
+    bridge.tick()
+    assert json.loads(bus.retained[topics.status(sid)])["state"] == "idle"
+    assert topics.turn(sid) in bus.retained
+
+
+def test_dismissal_file_kept_means_still_hidden(tmp_path):
+    clock = [10.0]
+    bridge, bus, _ = idle_bridge(tmp_path, clock)
+    sid = bridge.session.sid
+    remove_on_vita(bridge, bus)
+    assert (tmp_path / f"{sid}.dismissed").exists()
+    clock[0] += 31
+    bridge.tick()
+    assert topics.status(sid) not in bus.retained

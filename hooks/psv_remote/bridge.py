@@ -142,9 +142,11 @@ class Bridge:
     def _still_dismissed(self) -> bool:
         if self.dismissed is None:
             return False
-        if self.view.state == "idle" and not self.pending and self._signature() == self.dismissed:
+        if (self.view.state == "idle" and not self.pending and self._signature() == self.dismissed
+                and self._dismissed_path().exists()):
             return True
-        # It woke up (a new turn, an answer, a decision): show it again, in full.
+        # It woke up (a new turn, an answer, a decision), or "Show on Vita" deleted the
+        # dismissal: show it again, in full.
         self.dismissed = None
         self._dismissed_path().unlink(missing_ok=True)
         self.last_status = self.last_turn = None
