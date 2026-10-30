@@ -76,6 +76,7 @@ class KiroProfile(AgentProfile):
                 pass
 
 
-def run(bus_factory, native, cfg, host_id, sleep=time.sleep):
+def run(bus_factory, native, cfg, host_id, sleep=time.sleep, on_ready=None):
     # The bridge owns this session, so a broker outage reconnects instead of ending it.
-    return run_reconnecting(bus_factory, native, cfg, host_id, KiroProfile(), sleep=sleep)
+    # on_ready(sid) runs once the session's broker identity is known.
+    return run_reconnecting(bus_factory, native, cfg, host_id, KiroProfile(), sleep=sleep, on_ready=on_ready)

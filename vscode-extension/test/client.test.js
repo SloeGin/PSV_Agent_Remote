@@ -93,3 +93,16 @@ test('runs wherever the workspace (and Codex) runs, including Remote SSH hosts',
   const manifest = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'package.json'), 'utf8'));
   assert.deepEqual(manifest.extensionKind, ['workspace']);
 });
+
+test('the bundled launcher runs psv_kiro.py for its kiro mode', () => {
+  const fs = require('fs'); const path = require('path');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'launcher.py'), 'utf8');
+  assert.match(source, /'kiro'/);
+  assert.match(source, /psv_kiro\.py/);
+});
+
+test('the runtime bundles psv_kiro.py next to psv_codex.py', () => {
+  const fs = require('fs'); const path = require('path');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'prepare_runtime.py'), 'utf8');
+  assert.match(source, /hooks\/psv_kiro\.py/);
+});

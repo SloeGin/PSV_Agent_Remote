@@ -14,19 +14,18 @@ An MQTT broker must already be running, and the Kiro CLI must be logged in
 
 import argparse
 import fcntl
-import hashlib
 import os
 import signal
 import socket
 import sys
 from pathlib import Path
 
+from psv_remote import kiro_registry
 from psv_remote.acp_connection import AcpConnection
 from psv_remote.bus import open_bus
 from psv_remote.rpc import NativeError
 from psv_remote.config import load_config
 from psv_remote.kiro_bridge import run
-from psv_remote.remote import scoped_session_id
 
 
 def main():
@@ -50,7 +49,7 @@ def main():
     # topics; the native thread id is only known after the session is created, so
     # the lock keys on cwd, which is what the user launched against.
     cwd = str(args.cwd.resolve())
-    lock_key = hashlib.sha256(f"{args.host_id}\n{cwd}".encode()).hexdigest()[:16]
+    lock_key = kiro_registry.lock_key(args.host_id, cwd)
     lock_path = cfg.state_dir / f"kiro-{lock_key}.bridge.lock"
     with lock_path.open("a") as lock:
         try:
@@ -58,11 +57,17 @@ def main():
         except BlockingIOError:
             parser.error("A Kiro bridge for this working directory is already running")
         native = None
+        # The VS Code panel lists running bridges from this entry ("starting" until
+        # the session id is known).
+        kiro_registry.write_entry(cfg.state_dir, lock_key, os.getpid(), cwd)
         try:
             native = AcpConnection(cfg, cwd, kiro_cli=args.kiro_cli, engine="v3")
-            # Reconnects through broker outages; only Ctrl-C or a dead kiro-cli ends it.
-            run(lambda: open_bus(cfg), native, cfg, args.host_id)
+            # Reconnects through broker outages; ends on Ctrl-C/SIGTERM, a dead
+            # kiro-cli, or the session being removed on the Vita.
+            run(lambda: open_bus(cfg), native, cfg, args.host_id,
+                on_ready=lambda sid: kiro_registry.write_entry(cfg.state_dir, lock_key, os.getpid(), cwd, sid))
         finally:
+            kiro_registry.remove_entry(cfg.state_dir, lock_key)
             if native is not None:
                 native.close()
     return 0

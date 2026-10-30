@@ -12,6 +12,7 @@ def copy_sources(repo, extension):
         shutil.rmtree(runtime)
     runtime.mkdir()
     shutil.copy2(repo / 'hooks/psv_codex.py', runtime)
+    shutil.copy2(repo / 'hooks/psv_kiro.py', runtime)
     source = repo / 'hooks/psv_remote'
     for path in source.rglob('*.py'):
         relative = path.relative_to(source)

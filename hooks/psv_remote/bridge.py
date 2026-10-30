@@ -364,7 +364,7 @@ def run(bus, native, cfg, host_id, profile: AgentProfile):
 BACKOFF_MAX_S = 30
 
 
-def run_reconnecting(bus_factory, native, cfg, host_id, profile: AgentProfile, sleep=time.sleep):
+def run_reconnecting(bus_factory, native, cfg, host_id, profile: AgentProfile, sleep=time.sleep, on_ready=None):
     """Like run(), for a native session the bridge owns (Kiro): a broker outage
     must not end it, so the bus is reopened with backoff and the bridge reattached."""
     bridge, backoff = None, 1
@@ -379,6 +379,8 @@ def run_reconnecting(bus_factory, native, cfg, host_id, profile: AgentProfile, s
             backoff = 1
             if bridge is None:
                 bridge = Bridge(bus, native, cfg, host_id, profile)
+                if on_ready is not None:
+                    on_ready(bridge.session.sid)
             else:
                 bridge.attach(bus)
             try:
