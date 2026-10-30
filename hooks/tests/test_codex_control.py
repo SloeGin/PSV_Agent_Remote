@@ -1,3 +1,4 @@
+import os
 import http.client
 import json
 import stat
@@ -371,7 +372,7 @@ def test_kiro_start_command_spawns_a_detached_bridge(tmp_path, monkeypatch):
     assert args[1].endswith("psv_kiro.py") and args[2:] == ["--cwd", "/p", "--host-id", "host"]
     assert kw["start_new_session"] is True and kw["stdin"] is vc.subprocess.DEVNULL  # outlives VS Code
     key = kiro_registry.lock_key("host", "/p")
-    assert kw["stdout"].name == str(tmp_path / f"kiro-{key}.log")
+    assert kw["stdout"] is kw["stderr"] and (tmp_path / f"kiro-{key}.log").exists()
 
 
 def test_kiro_start_skipped_when_already_running(tmp_path, monkeypatch):
@@ -404,3 +405,127 @@ def test_kiro_stop_command_terminates_the_registered_bridge(tmp_path, monkeypatc
     handle_command(cfg, "host", json.dumps({"cmd": "kiro_stop", "cwd": "/not-running"}), [])
     assert killed == [(4242, signal.SIGTERM)]
     lock.close()
+
+
+# ---- review fix: the manager's workers are keyed by thread id, removals by session id ----
+
+from psv_remote.codex_manager import bridged_sessions, make_restore  # noqa: E402
+from psv_remote.remote import scoped_session_id  # noqa: E402
+
+
+def test_removed_and_restore_use_the_bridges_session_ids(tmp_path):
+    workers = {"thread-1": object(), "thread-2": object()}  # Supervisor.workers: thread id -> worker
+    sid = scoped_session_id("codex", "host", "thread-1")
+    (tmp_path / f"{sid}.dismissed").write_text("sig")
+    running = bridged_sessions("host", workers)
+    assert running == {sid, scoped_session_id("codex", "host", "thread-2")}
+    watch = fed((f"claude/session/{sid}/status", status("idle", "notes")), (f"claude/session/{sid}/status", b""))
+    assert removed_sessions(tmp_path, running, watch) == [{"sid": sid, "project": "notes"}]
+    assert watch.snapshot(running)["sessions"] == []
+    restore = make_restore(Config(state_dir=tmp_path), "host", workers)
+    assert restore("thread-1") is False  # a raw thread id is not a session
+    assert restore(sid) is True and not (tmp_path / f"{sid}.dismissed").exists()
+
+
+# ---- review fix: a workspace opened through a symlink is the same Kiro folder ----
+
+def linked_folder(tmp_path):
+    real = tmp_path / "real-project"
+    real.mkdir()
+    link = tmp_path / "link-project"
+    link.symlink_to(real)
+    return str(link), os.path.realpath(real)
+
+
+def test_kiro_status_matches_folders_through_symlinks(tmp_path):
+    import fcntl
+    state = tmp_path / "state"
+    state.mkdir(mode=0o700)
+    cfg = Config(state_dir=state)
+    link, real = linked_folder(tmp_path)
+    key = kiro_registry.lock_key("host", real)
+    lock = (state / f"kiro-{key}.bridge.lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    kiro_registry.write_entry(state, key, 4242, real, "kiro-x")  # psv_kiro registers the resolved path
+    bridges = kiro_status(cfg, "host", [link])["bridges"]
+    assert [b["cwd"] for b in bridges] == [link]  # reported as the window knows the folder
+    lock.close()
+    (state / f"kiro-{key}.log").write_text("Kiro CLI is not logged in; run `kiro-cli login`\n")
+    assert kiro_status(cfg, "host", [link])["errors"] == {link: "Kiro CLI is not logged in; run `kiro-cli login`"}
+
+
+def test_kiro_start_and_stop_resolve_the_folder(tmp_path, monkeypatch):
+    import fcntl
+    import psv_remote.vscode_client as vc
+    state = tmp_path / "state"
+    state.mkdir(mode=0o700)
+    cfg = Config(state_dir=state)
+    link, real = linked_folder(tmp_path)
+    spawned, killed = [], []
+    monkeypatch.setattr(vc.subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    monkeypatch.setattr(vc.os, "kill", lambda pid, sig: killed.append(pid))
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_start", "cwd": link}), [])
+    assert spawned[0][2:4] == ["--cwd", real]
+    key = kiro_registry.lock_key("host", real)
+    lock = (state / f"kiro-{key}.bridge.lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    kiro_registry.write_entry(state, key, 4242, real, "kiro-x")
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_start", "cwd": link}), [])
+    assert len(spawned) == 1  # already running under its resolved path
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_stop", "cwd": link}), [])
+    assert killed == [4242]
+    lock.close()
+
+
+def test_a_failing_command_does_not_stop_the_command_channel():
+    import io
+    import threading
+    from psv_remote.vscode_client import read_commands
+    handled = []
+
+    def handle(line):
+        handled.append(line.strip())
+        if line.startswith("boom"):
+            raise OSError("state folder not writable")
+
+    stopped = threading.Event()
+    read_commands(io.BytesIO(b"boom\nnext\n"), handle, stopped)
+    assert handled == ["boom", "next"] and stopped.is_set()  # EOF still means "this window left"
+
+
+# ---- review fix: Kiro actions never trust a state folder other users can change ----
+
+def test_kiro_actions_refuse_a_shared_state_folder(tmp_path, monkeypatch):
+    import fcntl
+    import psv_remote.vscode_client as vc
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o777)  # what another user could have created first in /tmp
+    cfg = Config(state_dir=shared)
+    spawned, killed = [], []
+    monkeypatch.setattr(vc.subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    monkeypatch.setattr(vc.os, "kill", lambda pid, sig: killed.append(pid))
+    key = kiro_registry.lock_key("host", "/p")
+    lock = (shared / f"kiro-{key}.bridge.lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    kiro_registry.write_entry(shared, key, 4242, "/p", "kiro-x")  # a planted entry naming any pid
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_stop", "cwd": "/p"}), [])
+    handle_command(cfg, "host", json.dumps({"cmd": "kiro_start", "cwd": "/q"}), [])
+    assert killed == [] and spawned == []
+    status = kiro_status(cfg, "host", ["/p"])
+    assert status["bridges"] == [] and "other users" in status["errors"]["/p"]
+    lock.close()
+
+
+def test_kiro_log_is_not_followed_through_a_symlink(tmp_path, monkeypatch):
+    import psv_remote.vscode_client as vc
+    state = tmp_path / "state"
+    state.mkdir(mode=0o700)
+    victim = tmp_path / "victim.txt"
+    victim.write_text("precious")
+    key = kiro_registry.lock_key("host", "/p")
+    (state / f"kiro-{key}.log").symlink_to(victim)
+    spawned = []
+    monkeypatch.setattr(vc.subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    handle_command(Config(state_dir=state), "host", json.dumps({"cmd": "kiro_start", "cwd": "/p"}), [])
+    assert victim.read_text() == "precious" and spawned == []

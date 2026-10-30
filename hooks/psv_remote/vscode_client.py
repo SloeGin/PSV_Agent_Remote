@@ -78,17 +78,43 @@ def running_status(state, log_path, kiro=None) -> dict:
     return status
 
 
+def state_dir_problem(cfg) -> str | None:
+    """Why Kiro actions must not trust cfg.state_dir, or None.
+
+    Its registry names pids to signal and its logs are opened for writing, so it must
+    be a real directory owned by this user that nobody else can write to (the
+    default under /tmp can be created first by another user).
+    """
+    import stat
+    try:
+        info = os.lstat(cfg.state_dir)
+    except FileNotFoundError:
+        return None  # created by us, with a safe mode, on first use
+    except OSError as error:
+        return f"Can't check the state folder {cfg.state_dir} ({type(error).__name__})."
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
+        return (f"The state folder {cfg.state_dir} can be changed by other users, so Kiro sessions are "
+                "not started or stopped from here. Set state_dir in ~/.config/psv-agent-remote/config.toml.")
+    return None
+
+
 def kiro_status(cfg, host_id, folders) -> dict:
     """Kiro bridges running on this machine, and why a start failed in one of the window's folders."""
-    bridges = kiro_registry.entries(cfg.state_dir)
-    running = {entry["cwd"] for entry in bridges}
+    problem = state_dir_problem(cfg)
+    if problem:
+        return {"bridges": [], "errors": {folder: problem for folder in folders}}
+    # psv_kiro registers the resolved path; report bridges as the window names its folders.
+    as_named = {os.path.realpath(folder): folder for folder in folders}
+    bridges = [{**{k: v for k, v in e.items() if k != "key"}, "cwd": as_named.get(e["cwd"], e["cwd"])}
+               for e in kiro_registry.entries(cfg.state_dir)]
+    running = {bridge["cwd"] for bridge in bridges}
     errors = {}
     for folder in folders:
         if folder not in running:
-            error = kiro_registry.last_error(cfg.state_dir, kiro_registry.lock_key(host_id, folder))
+            error = kiro_registry.last_error(cfg.state_dir, kiro_registry.lock_key(host_id, os.path.realpath(folder)))
             if error:
                 errors[folder] = error
-    return {"bridges": [{k: v for k, v in e.items() if k != "key"} for e in bridges], "errors": errors}
+    return {"bridges": bridges, "errors": errors}
 
 
 def kiro_start(cfg, host_id, cwd) -> None:
@@ -97,18 +123,28 @@ def kiro_start(cfg, host_id, cwd) -> None:
     It inherits this process's environment (broker settings, and the launcher's
     PYTHONPATH with the bundled libraries) and logs where the panel looks for errors.
     """
+    if state_dir_problem(cfg):
+        return
+    cwd = os.path.realpath(cwd)  # the same key psv_kiro uses, even through a symlink
     if any(entry["cwd"] == cwd for entry in kiro_registry.entries(cfg.state_dir)):
         return
     entry = Path(__file__).resolve().parents[1] / "psv_kiro.py"
     log_path = cfg.state_dir / f"kiro-{kiro_registry.lock_key(host_id, cwd)}.log"
-    cfg.state_dir.mkdir(parents=True, exist_ok=True)
-    with open(log_path, "wb") as log:  # a fresh log: an old failure must not linger
+    cfg.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:  # a fresh log (an old failure must not linger), never through a planted symlink
+        fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        return
+    with os.fdopen(fd, "wb") as log:
         subprocess.Popen([sys.executable, str(entry), "--cwd", cwd, "--host-id", host_id],
                          stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
 
 
 def kiro_stop(cfg, cwd) -> None:
     """SIGTERM the Kiro bridge for cwd; it ends kiro-cli and clears its broker topics."""
+    if state_dir_problem(cfg):
+        return
+    cwd = os.path.realpath(cwd)
     for entry in kiro_registry.entries(cfg.state_dir):
         if entry["cwd"] == cwd and isinstance(entry["pid"], int):
             try:
@@ -140,6 +176,22 @@ def handle_command(cfg, host_id, line, folders) -> None:
             pass
 
 
+def read_commands(stream, handle, stopped) -> None:
+    """Hand each line to handle until EOF, then set stopped (the window left or crashed).
+
+    A command that fails is logged and skipped, so one bad Start can't silence
+    every later command or keep the window's lease alive past EOF.
+    """
+    try:
+        for line in stream:
+            try:
+                handle(line.decode("utf-8", "replace") if isinstance(line, bytes) else line)
+            except Exception as error:
+                emit("log", message=f"Command failed ({type(error).__name__}).")
+    finally:
+        stopped.set()
+
+
 def run_client(cfg, host_id, options, replace=False):
     if not cfg.enabled:
         emit("status", state="disabled", message="Bridge disabled in the shared configuration.")
@@ -147,10 +199,8 @@ def run_client(cfg, host_id, options, replace=False):
     stopped = threading.Event()
     folders = []  # the window's workspace folders, sent by the extension
 
-    def stdin_closed():
-        for line in sys.stdin.buffer:  # JSON commands from the extension, one per line
-            handle_command(cfg, host_id, line.decode("utf-8", "replace"), folders)
-        stopped.set()  # extension host crash also closes the pipe
+    def stdin_closed():  # JSON commands from the extension, one per line
+        read_commands(sys.stdin.buffer, lambda line: handle_command(cfg, host_id, line, folders), stopped)
     threading.Thread(target=stdin_closed, daemon=True).start()
     client = uuid.uuid4().hex
     key = configuration_key(cfg, host_id, options)

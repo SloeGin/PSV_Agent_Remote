@@ -241,6 +241,21 @@ def removed_sessions(state_dir: Path, running: set[str], watch: BrokerWatch) -> 
             for sid in sorted(running) if (Path(state_dir) / f"{_safe(sid)}.dismissed").exists()]
 
 
+def bridged_sessions(host_id: str, workers) -> set[str]:
+    """Broker session ids of the running bridges (Supervisor.workers is keyed by thread id)."""
+    return {scoped_session_id("codex", host_id, thread_id) for thread_id in list(workers)}
+
+
+def make_restore(cfg, host_id: str, workers):
+    """"Show on Vita": delete a running bridge's dismissal; its next tick republishes."""
+    def restore(sid) -> bool:
+        if sid not in bridged_sessions(host_id, workers):
+            return False
+        (Path(cfg.state_dir) / f"{_safe(sid)}.dismissed").unlink(missing_ok=True)
+        return True
+    return restore
+
+
 class DiscoverySlot:
     def __init__(self, factory, clock=time.monotonic):
         self.factory, self.clock = factory, clock
@@ -291,12 +306,7 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
     probe = BrokerProbe(lambda: open_bus(cfg), cfg, broker_configured())
     watch = BrokerWatch(lambda: open_bus(cfg))
 
-    def restore(sid):  # "Show on Vita": the bridge notices the deleted dismissal
-        if sid not in supervisor.workers:
-            return False
-        (cfg.state_dir / f"{_safe(sid)}.dismissed").unlink(missing_ok=True)
-        return True
-
+    restore = make_restore(cfg, host_id, supervisor.workers)
     try:
         control = ManagerControl(cfg, host_id, configuration_key(cfg, host_id, options), lease_managed,
                                  configuration_summary(cfg, host_id, options), restore)
@@ -307,7 +317,7 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
             if probe.poll():
                 print(probe.message or f"MQTT broker reachable at {cfg.broker_host}:{cfg.broker_port}.", flush=True)
             watch.poll()
-            running = set(supervisor.workers)
+            running = bridged_sessions(host_id, supervisor.workers)
             panel = {**watch.snapshot(running), "removed": removed_sessions(cfg.state_dir, running, watch)}
             control.update(current, len({route.thread_id for route in routes}), broker=probe.state(), panel=panel)
             if current != count:
