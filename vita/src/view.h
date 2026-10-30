@@ -2,6 +2,8 @@
 
 #include <stdbool.h>
 
+#include "config.h"
+
 typedef struct {
     int line;
     char sid[64];
@@ -46,3 +48,8 @@ typedef struct {
 } PowerWatch;
 typedef enum { POWER_NO_CHANGE, POWER_TO_DESK, POWER_TO_SOFA } PowerChange;
 PowerChange power_watch(PowerWatch *w, bool online);
+
+/* True when b is a different broker from the one recorded in last (then records
+ * b). The first broker, a reconnect to the same one, or no broker (NULL) is not
+ * a switch. */
+bool broker_switched(char last[64], const Broker *b);

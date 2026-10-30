@@ -35,6 +35,7 @@ static volatile int g_mode_dirty;
 static volatile int g_online_dirty;
 static volatile NetStatus g_status = NET_DOWN;
 static volatile int g_connected_idx = -1;
+static char g_broker_key[64]; /* broker_key() of the last broker we connected to */
 static volatile NetError g_errors[MAX_BROKERS];
 static volatile int g_running;
 static SceUID g_thread = -1;
@@ -65,6 +66,15 @@ static void on_message(const char *topic, const uint8_t *payload, size_t len, vo
     m->len = len;
     g_in_count++;
     unlock();
+}
+
+/* Caller holds the lock. */
+static void drop_inbox(void) {
+    while (g_in_count) {
+        free(g_inbox[g_in_head].payload);
+        g_in_head = (g_in_head + 1) % INBOX_CAP;
+        g_in_count--;
+    }
 }
 
 bool net_pop(InMsg *out) {
@@ -182,10 +192,20 @@ static int net_thread(SceSize args, void *argp) {
         }
 
         uint64_t session_start = sceKernelGetProcessTimeWide() / 1000;
-        g_connected_idx = idx;
+        char key[64];
+        broker_key(&brokers[idx], key);
         lock();
+        if (g_broker_key[0] && strcmp(g_broker_key, key)) {
+            /* A different broker: the old one's unread messages and unsent replies
+             * belong to sessions that are gone (the app drops them too). */
+            drop_inbox();
+            outbox_free(&g_outbox);
+            outbox_init(&g_outbox);
+        }
+        memcpy(g_broker_key, key, sizeof key);
         outbox_requeue_all(&g_outbox); /* anything unacknowledged goes out again */
         unlock();
+        g_connected_idx = idx; /* after the flush: what follows is this broker's */
         g_mode_dirty = 0;
         const char *mode = mode_str(g_mode);
         bool ok = mqtt_publish(c, TOPIC_ONLINE, "1", 1, 1, 1) >= 0;

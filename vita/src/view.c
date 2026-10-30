@@ -59,3 +59,12 @@ PowerChange power_watch(PowerWatch *w, bool online) {
     if (!was_seen || was == online) return POWER_NO_CHANGE;
     return online ? POWER_TO_DESK : POWER_TO_SOFA;
 }
+
+bool broker_switched(char last[64], const Broker *b) {
+    if (!b) return false;
+    char key[64];
+    broker_key(b, key);
+    bool switched = last[0] && strcmp(last, key);
+    memcpy(last, key, 64);
+    return switched;
+}

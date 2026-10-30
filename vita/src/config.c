@@ -226,3 +226,7 @@ bool config_migrate_dir(const char *old_dir, const char *new_dir) {
     return rename(old_dir, new_dir) == 0;
 #endif
 }
+
+void broker_key(const Broker *b, char out[64]) {
+    snprintf(out, 64, "%s%s:%d", b->tls ? "tls://" : "", b->host, b->port);
+}

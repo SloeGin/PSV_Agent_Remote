@@ -85,8 +85,20 @@ static void t_power_edges_switch_mode(void) {
     CHECK(power_watch(&w, true) == POWER_NO_CHANGE); /* a manual toggle in between stays */
 }
 
+static void t_broker_switched(void) {
+    char last[64] = "";
+    Broker home = {"192.168.1.20", 1883, false}, office = {"10.0.0.5", 8883, true};
+    CHECK(!broker_switched(last, &home));   /* first broker: nothing to drop */
+    CHECK(!broker_switched(last, &home));   /* reconnecting to the same one keeps sessions */
+    CHECK(broker_switched(last, &office));  /* a different broker drops them */
+    CHECK(!broker_switched(last, &office));
+    CHECK(!broker_switched(last, NULL));    /* no broker configured: nothing to compare */
+    CHECK(broker_switched(last, &home));
+}
+
 int main(void) {
     RUN(t_clip_rect_normalized);
+    RUN(t_broker_switched);
     RUN(t_new_request_starts_at_top);
     RUN(t_clamps);
     RUN(t_focus_default_first_visible);

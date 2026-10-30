@@ -632,8 +632,26 @@ static void t_reply_state_flags(void) {
     model_free(&m);
 }
 
+static void t_model_clear(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    StatusMsg r = st(ST_RUNNING, "a");
+    model_on_status(&m, "A", &r, 0);
+    model_on_status(&m, "B", &r, 0);
+    Request q = mkreq("r1");
+    model_on_request(&m, "B", "r1", &q, 0);
+    model_clear(&m); /* the broker changed: none of these sessions are reachable */
+    CHECK(m.n == 0 && m.cur == -1 && m.sel == -1);
+    CHECK(model_current_request(&m) == NULL);
+    CHECK(m.mode == MODE_SOFA);
+    model_on_status(&m, "C", &r, 1); /* and the model keeps working */
+    CHECK(m.n == 1 && m.cur == 0);
+    model_free(&m);
+}
+
 int main(void) {
     RUN(t_idle_since);
+    RUN(t_model_clear);
     RUN(t_summary_rev_changes);
     RUN(t_cwd_kept);
     RUN(t_confirm_requires_selection_and_lockout);

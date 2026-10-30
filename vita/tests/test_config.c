@@ -200,8 +200,19 @@ static void t_migrate_data_dir(void) {
     rmdir(base);
 }
 
+static void t_broker_key(void) {
+    Broker a = {"192.168.1.20", 1883, false}, b = {"192.168.1.20", 8883, true}, c = {"192.168.1.20", 1883, false};
+    char ka[64], kb[64], kc[64];
+    broker_key(&a, ka);
+    broker_key(&b, kb);
+    broker_key(&c, kc);
+    CHECK_STR(ka, kc);
+    CHECK(strcmp(ka, kb) != 0); /* same host, different port/TLS: a different broker */
+}
+
 int main(void) {
     RUN(t_defaults);
+    RUN(t_broker_key);
     RUN(t_migrate_data_dir);
     RUN(t_parse_tls);
     RUN(t_tls_roundtrip);

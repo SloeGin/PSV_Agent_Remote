@@ -29,6 +29,8 @@ typedef struct {
 } AppConfig;
 
 void config_defaults(AppConfig *c);
+/* "tls://host:port" or "host:port": which broker this is, for noticing a switch. */
+void broker_key(const Broker *b, char out[64]);
 
 /* Accepts "a.b.c.d" or "a.b.c.d:port" (port defaults to 1883), optionally
  * prefixed "tls://" (port then defaults to 8883). */

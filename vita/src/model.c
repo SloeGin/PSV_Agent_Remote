@@ -40,6 +40,13 @@ void model_free(Model *m) {
     m->cur = -1;
 }
 
+void model_clear(Model *m) {
+    model_free(m);
+    m->sel = -1;
+    m->shown_sid[0] = m->shown_rid[0] = 0;
+    m->sheet_hidden = false;
+}
+
 static int find(const Model *m, const char *sid) {
     for (int i = 0; i < m->n; i++)
         if (!strcmp(m->s[i].sid, sid)) return i;

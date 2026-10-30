@@ -131,6 +131,7 @@ typedef struct {
     bool wake_touch; /* the finger that woke the screen must not also press what it lands on */
     unsigned tables_rev; /* ui_turn_rev() the table focus and pans belong to */
     PowerWatch power;    /* plug in → desk mode, unplug → sofa mode */
+    char broker_last[64]; /* broker_key() the sessions on screen came from */
     int reply_drag_acc;  /* sideways drag not yet turned into a reply-button step */
 } App;
 
@@ -538,6 +539,17 @@ int main(void) {
         Actions none;
         memset(&none, 0, sizeof none);
         update_tables(&app, app.ime == IME_NONE && !app.view.dimmed ? &a : &none);
+        /* Sessions belong to a broker: switching (in Settings or by failover) drops them
+         * before any message from the new one is read. */
+        int linked = net_connected_index();
+        const Broker *broker = linked >= 0 && linked < app.cfg.n_brokers ? &app.cfg.brokers[linked]
+                               : app.cfg.n_brokers ? &app.cfg.brokers[app.cfg.active] : NULL;
+        if (broker_switched(app.broker_last, broker)) {
+            model_clear(&app.model);
+            app.list.cursor = 0;
+            app.list.confirming = false;
+            show_toast(&app, "Switched broker · sessions cleared", now);
+        }
         handle_messages(&app, now);
         model_tick(&app.model, now);
         for (int i = 0; i < app.model.n; i++) {

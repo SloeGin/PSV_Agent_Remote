@@ -129,6 +129,8 @@ typedef struct {
 
 void model_init(Model *m, Mode mode);
 void model_free(Model *m);
+/* Forget every session (the broker changed); the model stays usable. */
+void model_clear(Model *m);
 
 /* st == NULL clears (removes) the session. Returns MEV_* bits. */
 unsigned model_on_status(Model *m, const char *sid, const StatusMsg *st, uint64_t now);
