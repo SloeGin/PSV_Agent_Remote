@@ -8,6 +8,8 @@ thinking, subagent (sidechain) traffic and system notices are left out.
 import json
 from pathlib import Path
 
+from .listener import psv_reply_text
+
 TAIL_BYTES = 4 * 1024 * 1024
 MAX_TEXT_CHARS = 4000
 MAX_PROMPT_CHARS = 2000
@@ -61,6 +63,9 @@ def _prompt_text(entry: dict) -> str | None:
         return None
     if not text:
         return None
+    reply = psv_reply_text(text)  # a reply from the PSV is the user's prompt, however it is wrapped
+    if reply is not None:
+        return reply
     if isinstance(origin, dict):
         return text if human else None
     return None if text.startswith("<") else text

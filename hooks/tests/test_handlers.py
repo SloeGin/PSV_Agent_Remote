@@ -363,3 +363,11 @@ def test_stop_handler_clears_flag_offline(cfg):
     stop_flag(cfg.state_dir, "s1").write_text("s9")
     handle_event(ev_named("Stop", last_assistant_message="done"), _failing, cfg, {})
     assert not stop_flag(cfg.state_dir, "s1").exists()
+
+
+def test_prompt_from_rewake_wrapper(bus, cfg):
+    wrapped = ('<task-notification>\n<summary>Stop hook feedback</summary>\n</task-notification>\n<system-reminder>\n'
+               'Stop hook blocking error from command "UserPromptSubmit": ' + FRAME + 'commit\n\n</system-reminder>')
+    handle_event(ev_named("UserPromptSubmit", prompt=wrapped), lambda: bus, cfg, {})
+    turn = json.loads(bus.retained["claude/session/s1/turn"])
+    assert turn["items"] == [{"k": "you", "t": "commit"}]

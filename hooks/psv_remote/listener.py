@@ -20,6 +20,22 @@ from .replies import ReplyLedger, parse_reply
 FRAME = "Message from the user, sent from their PS Vita remote: "
 
 
+def psv_reply_text(text: str) -> str | None:
+    """The user's words if text is a PSV reply as Claude Code shows it, else None.
+
+    Older versions pass the framed text as is; 2.1.314 wraps it in a task
+    notification and a "Stop hook blocking error" system reminder.
+    """
+    start = text.find(FRAME)
+    if start < 0:
+        return None
+    body = text[start + len(FRAME):]
+    end = body.find("</system-reminder>")
+    if end >= 0:
+        body = body[:end]
+    return body.strip() or None
+
+
 def stop_flag(state_dir: Path, sid: str) -> Path:
     """Exists while a stop is pending; holds the stop reply's id."""
     return Path(state_dir) / f"{_safe(sid)}.stop"

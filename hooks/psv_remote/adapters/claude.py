@@ -6,7 +6,7 @@ from .. import topics
 from ..bus import Bus, BusError
 from ..config import Config
 from ..decision import build_options, decision_output, question_output
-from ..listener import FRAME, stop_flag
+from ..listener import psv_reply_text, stop_flag
 from ..render import render_request
 from ..transcript import current_turn, with_final_message
 from .. import remote
@@ -128,8 +128,8 @@ def _status_event(event: dict, bus: Bus, cfg: Config, env: Mapping[str, str]) ->
     elif name == "UserPromptSubmit":
         _publish_status(bus, event, env, "running")
         prompt = event.get("prompt")
-        if isinstance(prompt, str) and prompt.startswith(FRAME):
-            prompt = prompt[len(FRAME):]
+        if isinstance(prompt, str):
+            prompt = psv_reply_text(prompt) or prompt  # show a PSV reply as the user's own words
         if isinstance(prompt, str) and prompt.strip():
             _publish_turn(bus, event, [{"k": "you", "t": prompt.strip()[:2000]}])
     elif name == "PostToolUse":

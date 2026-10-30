@@ -79,3 +79,30 @@ def test_prompt_with_attachment_starts_the_turn(tmp_path):
         {"type": "text", "text": "看看这张截图"}, {"type": "image", "source": {"type": "base64", "data": "xx"}}]}}
     write(p, [user("old prompt"), assistant(text("old answer")), image_prompt, assistant(text("看到了"))])
     assert current_turn(p) == [{"k": "you", "t": "看看这张截图 [image]"}, {"k": "claude", "t": "看到了"}]
+
+
+# Claude Code 2.1.314 shows a PSV reply (asyncRewake) as a task notification.
+REWAKE = ('<task-notification>\n<summary>Stop hook feedback</summary>\n</task-notification>\n<system-reminder>\n'
+          'Stop hook blocking error from command "SessionStart:startup": Message from the user, sent from '
+          'their PS Vita remote: tell me a joke\n\n</system-reminder>')
+
+
+def test_psv_reply_is_the_prompt_in_a_fresh_session(tmp_path):
+    p = tmp_path / "t.jsonl"
+    write(p, [user(REWAKE, kind="task-notification"), assistant(text("Light attracts bugs."))])
+    assert current_turn(p) == [{"k": "you", "t": "tell me a joke"}, {"k": "claude", "t": "Light attracts bugs."}]
+
+
+def test_psv_reply_starts_a_new_turn(tmp_path):
+    p = tmp_path / "t.jsonl"
+    write(p, [user("earlier prompt"), assistant(text("earlier answer")),
+              user(REWAKE, kind="task-notification"), assistant(text("Light attracts bugs."))])
+    assert current_turn(p)[0] == {"k": "you", "t": "tell me a joke"}
+
+
+def test_other_task_notifications_are_not_prompts(tmp_path):
+    p = tmp_path / "t.jsonl"
+    write(p, [user("real prompt"), assistant(text("a")),
+              user("<task-notification>\n<summary>Agent finished</summary>\n</task-notification>", kind="task-notification"),
+              assistant(text("b"))])
+    assert current_turn(p)[0] == {"k": "you", "t": "real prompt"}
