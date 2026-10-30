@@ -7,7 +7,7 @@ import pytest
 from fakebus import FakeBus
 from psv_remote import topics
 from psv_remote.bridge import Bridge
-from psv_remote.codex_rpc import NativeError
+from psv_remote.rpc import NativeError
 from psv_remote.config import Config
 from psv_remote.kiro_bridge import KiroProfile
 from psv_remote.remote import encode

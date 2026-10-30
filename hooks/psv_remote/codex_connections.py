@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from .adapters.codex import ordered_turns, request_key, session_view, COMMAND_APPROVAL, USER_INPUT
-from .codex_rpc import DependencyError, NativeError, Peer, RpcError
+from .rpc import DependencyError, NativeError, Peer, RpcError
 from .codex_state import Replica, StateError
 
 MAX_FRAME = 4 * 1024 * 1024

@@ -1,4 +1,5 @@
-"""Bounded background RPC reader, shared by Codex's two connection strategies."""
+"""JSON-RPC over a line stream: a bounded background reader (Peer) and the native
+error types. Shared by every native connection (Codex app-server/IPC, Kiro ACP)."""
 
 import queue
 import threading

@@ -6,7 +6,7 @@ import pytest
 from fakebus import FakeBus
 from psv_remote import topics
 from psv_remote.codex_bridge import CodexBridge
-from psv_remote.codex_rpc import NativeError
+from psv_remote.rpc import NativeError
 from psv_remote.config import Config
 from psv_remote.remote import encode
 from test_codex_adapter import approval, question, state

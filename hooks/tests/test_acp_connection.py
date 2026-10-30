@@ -2,7 +2,7 @@
 import pytest
 
 from psv_remote.acp_connection import AcpConnection, _classify_startup, _content_text
-from psv_remote.codex_rpc import NativeError, RpcError
+from psv_remote.rpc import NativeError, RpcError
 
 
 class FakePeer:

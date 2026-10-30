@@ -107,3 +107,13 @@ def test_request_change_invalidates_identity_without_mutating_original():
     assert remote_request(changed).key != request.key
     native["params"]["command"] = "mutated source"
     assert request.native["params"]["command"] == "echo hello"
+
+
+def test_request_reports_codex_auto_resolution_as_its_timeout():
+    native = approval()
+    assert remote_request(native).native_timeout_s is None
+    native["params"]["autoResolutionMs"] = 30000
+    assert remote_request(native).native_timeout_s == 30.0
+    for junk in (0, -5, "30000", True, 1.5):
+        native["params"]["autoResolutionMs"] = junk
+        assert remote_request(native).native_timeout_s is None

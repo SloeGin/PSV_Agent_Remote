@@ -23,7 +23,7 @@ from pathlib import Path
 
 from psv_remote.acp_connection import AcpConnection
 from psv_remote.bus import open_bus
-from psv_remote.codex_rpc import NativeError
+from psv_remote.rpc import NativeError
 from psv_remote.config import load_config
 from psv_remote.kiro_bridge import run
 from psv_remote.remote import scoped_session_id

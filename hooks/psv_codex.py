@@ -10,7 +10,7 @@ from pathlib import Path
 from psv_remote.bus import open_bus
 from psv_remote.codex_bridge import run
 from psv_remote.codex_connections import AppServer, FrontendIPC
-from psv_remote.codex_rpc import DependencyError
+from psv_remote.rpc import DependencyError
 from psv_remote.codex_manager import watch
 from psv_remote.config import load_config
 from psv_remote.remote import scoped_session_id

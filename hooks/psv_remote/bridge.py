@@ -4,7 +4,9 @@ Agent-specific behavior lives in an AgentProfile, so any agent with a live nativ
 connection can reuse the same request lifecycle, reply/stop flow and status
 publishing. The profile supplies the adapter's session_view/remote_request, the
 agent name and capabilities, how a turn delivery is confirmed, and how a busy
-reply is delivered. Codex is the current user (codex_bridge.CodexProfile).
+reply is delivered. Users: codex_bridge.CodexProfile and kiro_bridge.KiroProfile.
+Each adapter Request exposes .key, .payload, .answer() and .native_timeout_s, so
+this module never reads an agent's native field names.
 """
 
 import json
@@ -15,7 +17,7 @@ from dataclasses import dataclass
 
 from . import remote, topics
 from .bus import Bus, BusError
-from .codex_rpc import NativeError, RpcError
+from .rpc import NativeError, RpcError
 from .config import Config
 from .replies import ReplyLedger, parse_reply
 
@@ -146,9 +148,8 @@ class Bridge:
                 continue
             rid = uuid.uuid4().hex[:12]
             timeout = self.cfg.wait_timeout_s
-            native_timeout = request.native["params"].get("autoResolutionMs")
-            if type(native_timeout) is int and native_timeout > 0:
-                timeout = min(timeout, native_timeout / 1000)
+            if request.native_timeout_s is not None:  # the agent decides by itself then
+                timeout = min(timeout, request.native_timeout_s)
             self.pending[rid] = Pending(request, self.clock() + timeout)
             self.tracker.add(rid)
             payload = {**request.payload, "rid": rid, "cwd": self.view.cwd,

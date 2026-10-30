@@ -140,3 +140,7 @@ def test_body_includes_resource_and_truncates():
     assert "Write File" in request.payload["body"]
     assert "big.txt" in request.payload["body"]
     assert request.payload["tool"] == "fs_write"
+
+
+def test_kiro_requests_have_no_native_timeout():
+    assert remote_request(permission()).native_timeout_s is None

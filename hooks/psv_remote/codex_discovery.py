@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .codex_connections import AppServerClient, IPCRouter
-from .codex_rpc import NativeError, RpcError, RpcTimeout
+from .rpc import NativeError, RpcError, RpcTimeout
 
 
 @dataclass(frozen=True)

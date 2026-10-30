@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .codex_discovery import AppServerDiscovery, IPCDiscovery
 from .codex_control import ManagerControl, configuration_key
-from .codex_rpc import DependencyError, NativeError
+from .rpc import DependencyError, NativeError
 from .remote import scoped_session_id
 
 

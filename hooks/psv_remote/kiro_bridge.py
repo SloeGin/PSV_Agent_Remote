@@ -17,7 +17,7 @@ import time
 
 from .adapters.kiro import remote_request, session_view
 from .bridge import AgentProfile, Delivery, run_reconnecting
-from .codex_rpc import NativeError
+from .rpc import NativeError
 
 
 class KiroProfile(AgentProfile):

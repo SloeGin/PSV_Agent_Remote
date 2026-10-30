@@ -3,7 +3,7 @@ from pathlib import Path
 
 from psv_remote.codex_discovery import Route
 from psv_remote.codex_manager import DiscoverySlot, Supervisor, lock_file, session_lock_path
-from psv_remote.codex_rpc import NativeError
+from psv_remote.rpc import NativeError
 from psv_remote.config import Config
 
 

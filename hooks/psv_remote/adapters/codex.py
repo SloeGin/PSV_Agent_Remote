@@ -90,6 +90,12 @@ class Request:
     def key(self) -> str:
         return request_key(self.native)
 
+    @property
+    def native_timeout_s(self) -> float | None:
+        """When Codex resolves the request by itself (autoResolutionMs), if it says."""
+        ms = self.native["params"].get("autoResolutionMs")
+        return ms / 1000 if type(ms) is int and ms > 0 else None
+
     def answer(self, message: dict) -> dict | None:
         if self.native["method"] == COMMAND_APPROVAL:
             choice = message.get("choice")

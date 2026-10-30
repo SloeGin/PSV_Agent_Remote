@@ -3,7 +3,7 @@ import threading
 
 import pytest
 
-from psv_remote.codex_rpc import NativeError, Peer, RpcError
+from psv_remote.rpc import NativeError, Peer, RpcError
 
 
 class Stream:

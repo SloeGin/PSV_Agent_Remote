@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 
 from psv_remote.codex_connections import AppServer, FrontendIPC
-from psv_remote.codex_rpc import NativeError, RpcError
+from psv_remote.rpc import NativeError, RpcError
 from psv_remote.codex_state import Replica
 from test_codex_adapter import approval, state
 

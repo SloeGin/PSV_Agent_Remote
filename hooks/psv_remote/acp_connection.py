@@ -26,7 +26,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from .codex_rpc import NativeError, Peer, RpcError
+from .rpc import NativeError, Peer, RpcError
 
 # ACP method names. session/* are standard; _kiro/* are negotiated extensions.
 M_INITIALIZE = "initialize"

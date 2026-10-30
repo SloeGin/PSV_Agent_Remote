@@ -5,7 +5,7 @@ import pytest
 
 from psv_remote import codex_discovery as discovery
 from psv_remote.codex_connections import AppServerClient
-from psv_remote.codex_rpc import NativeError, RpcError
+from psv_remote.rpc import NativeError, RpcError
 
 
 @pytest.fixture

@@ -95,6 +95,10 @@ class Request:
     def key(self) -> str:
         return request_key(self.native)
 
+    @property
+    def native_timeout_s(self) -> float | None:
+        return None  # Kiro waits for an answer indefinitely
+
     def answer(self, message: dict) -> dict | None:
         """Translate a PSV decision into an ACP permission outcome.
 
