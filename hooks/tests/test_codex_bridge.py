@@ -180,3 +180,74 @@ def test_restarted_worker_clears_crash_left_sheet_and_does_not_replay_decision(s
     assert len(second.pending) == 1 and old_rid not in second.pending
     respond(second, old_rid, choice="allow")
     assert native.answers == []
+
+
+# ---- a session removed on the Vita stays away until it wakes up ----
+
+def idle_bridge(tmp_path, clock):
+    bus = FakeBus()
+    native = Native(state(status="completed"))
+    bridge = CodexBridge(bus, native, Config(state_dir=tmp_path, wait_timeout_s=5), "test-host",
+                         clock=lambda: clock[0])
+    bridge.tick()
+    bridge.on_message(topics.ONLINE, b"1")
+    bridge.on_message(topics.MODE, b"sofa")
+    return bridge, bus, native
+
+
+def remove_on_vita(bridge, bus):
+    sid = bridge.session.sid
+    for kind in (topics.status(sid), topics.turn(sid)):
+        bus.publish(kind, b"", retain=True)  # what the Vita publishes
+    bridge.on_message(topics.status(sid), b"")
+
+
+def test_removed_idle_session_is_not_republished(tmp_path):
+    clock = [10.0]
+    bridge, bus, _ = idle_bridge(tmp_path, clock)
+    sid = bridge.session.sid
+    assert topics.status(sid) in bridge.bus.subscribed  # it notices a removal
+    remove_on_vita(bridge, bus)
+    for _ in range(5):
+        clock[0] += 31  # well past the 30 s status keepalive
+        bridge.tick()
+    assert topics.status(sid) not in bus.retained and topics.turn(sid) not in bus.retained
+
+
+def test_removed_session_comes_back_when_it_wakes(tmp_path):
+    clock = [10.0]
+    bridge, bus, native = idle_bridge(tmp_path, clock)
+    sid = bridge.session.sid
+    remove_on_vita(bridge, bus)
+    native.raw = state(status="inProgress")  # a new turn started on the computer
+    bridge.tick()
+    assert json.loads(bus.retained[topics.status(sid)])["state"] == "running"
+    assert topics.turn(sid) in bus.retained
+
+
+def test_removed_session_comes_back_for_a_decision(tmp_path):
+    clock = [10.0]
+    bridge, bus, native = idle_bridge(tmp_path, clock)
+    sid = bridge.session.sid
+    remove_on_vita(bridge, bus)
+    native.raw = state([approval()])
+    bridge.tick()
+    assert topics.status(sid) in bus.retained and bridge.pending
+
+
+def test_removal_survives_a_bridge_restart(tmp_path):
+    clock = [10.0]
+    bridge, bus, _ = idle_bridge(tmp_path, clock)
+    remove_on_vita(bridge, bus)
+    again, bus2, _ = idle_bridge(tmp_path, clock)  # the manager restarted this bridge
+    assert topics.status(again.session.sid) not in bus2.retained
+
+
+def test_own_status_messages_are_not_a_removal(tmp_path):
+    clock = [10.0]
+    bridge, bus, _ = idle_bridge(tmp_path, clock)
+    sid = bridge.session.sid
+    bridge.on_message(topics.status(sid), bus.retained[topics.status(sid)])  # our retained echo
+    clock[0] += 31
+    bridge.tick()
+    assert topics.status(sid) in bus.retained

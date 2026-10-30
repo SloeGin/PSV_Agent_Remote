@@ -249,3 +249,16 @@ def test_broker_drop_keeps_the_kiro_session(tmp_path):
     assert len(old) == 1 and len(new) == 1 and old[0] not in new  # the sheet is offered afresh
     assert (old[0], b"", True) in second.published  # and the stale one is withdrawn
     assert native.starts == [] and native.stops == []  # the session itself was never touched
+
+
+def test_kiro_session_is_not_dismissed_by_removal(setup):
+    # The Vita is a Kiro session's only interface: hiding it would strand it.
+    bridge, bus, native, clock = setup
+    sid = bridge.session.sid
+    native.raw = snap(state="idle", requests=[])
+    bridge.tick()
+    bus.publish(topics.status(sid), b"", retain=True)
+    bridge.on_message(topics.status(sid), b"")
+    clock[0] += 31
+    bridge.tick()
+    assert topics.status(sid) in bus.retained

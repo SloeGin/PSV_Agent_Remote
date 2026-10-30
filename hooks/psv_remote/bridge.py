@@ -9,6 +9,7 @@ Each adapter Request exposes .key, .payload, .answer() and .native_timeout_s, so
 this module never reads an agent's native field names.
 """
 
+import hashlib
 import json
 import re
 import time
@@ -19,6 +20,7 @@ from . import remote, topics
 from .bus import Bus, BusError
 from .rpc import NativeError, RpcError
 from .config import Config
+from .pending import _safe
 from .replies import ReplyLedger, parse_reply
 
 
@@ -44,6 +46,9 @@ class AgentProfile:
     # True when the agent shows its own approval prompt if the Vita doesn't answer.
     # Without one (Kiro), a missed sheet must be offered again, never dropped.
     has_native_fallback = True
+    # Removing an idle session on the Vita hides it until it wakes. Off when the Vita
+    # is the session's only interface (Kiro): nothing else could ever wake it.
+    dismissable = True
 
     def session_view(self, raw):
         raise NotImplementedError
@@ -83,6 +88,8 @@ class Bridge:
         self.last_turn = None
         self.last_publish = 0
         self.tracker = remote.tracker(cfg, sid)
+        # Removed on the Vita while idle: stay off it until the session wakes up.
+        self.dismissed = self._load_dismissed()
         # A killed worker may leave retained sheets. Clear only our persisted
         # request IDs before issuing fresh IDs; never replay old decisions.
         for rid in self.tracker.ids():
@@ -92,7 +99,7 @@ class Bridge:
 
     def _subscribe(self):
         sid = self.session.sid
-        for topic in (topics.ONLINE, topics.MODE, topics.reply(sid), topics.response(sid, "+")):
+        for topic in (topics.ONLINE, topics.MODE, topics.reply(sid), topics.response(sid, "+"), topics.status(sid)):
             self.bus.subscribe(topic)
 
     def attach(self, bus):
@@ -108,6 +115,40 @@ class Bridge:
             remote.quietly(self._clear_request, rid)
         self.last_status = self.last_turn = None
         self._subscribe()
+
+    # ---- removal on the Vita ----
+
+    def _dismissed_path(self):
+        return self.cfg.state_dir / f"{_safe(self.session.sid)}.dismissed"
+
+    def _signature(self) -> str:
+        """What the Vita was showing: the last exchange. New activity changes it."""
+        return hashlib.sha256(json.dumps(self.view.items, sort_keys=True).encode()).hexdigest()
+
+    def _load_dismissed(self):
+        try:
+            return self._dismissed_path().read_text().strip() or None
+        except OSError:
+            return None
+
+    def _dismiss(self):
+        self.dismissed = self._signature()
+        try:
+            self.cfg.state_dir.mkdir(parents=True, exist_ok=True)
+            self._dismissed_path().write_text(self.dismissed)  # survives a bridge restart
+        except OSError:
+            pass
+
+    def _still_dismissed(self) -> bool:
+        if self.dismissed is None:
+            return False
+        if self.view.state == "idle" and not self.pending and self._signature() == self.dismissed:
+            return True
+        # It woke up (a new turn, an answer, a decision): show it again, in full.
+        self.dismissed = None
+        self._dismissed_path().unlink(missing_ok=True)
+        self.last_status = self.last_turn = None
+        return False
 
     def _reply_state(self, rid, state):
         remote.publish_reply_state(self.bus, self.session.sid, rid, state)
@@ -199,6 +240,8 @@ class Bridge:
         if self.queued and self.view.state == "idle" and self.delivery is None:
             message, self.queued = self.queued, None
             self._send(message)
+        if self._still_dismissed():
+            return
         summary = next((item["t"] for item in reversed(self.view.items) if item["k"] == "assistant"), "")
         capabilities = self.profile.capabilities
         status = (self.view.state, self.view.cwd, summary, capabilities)
@@ -210,6 +253,10 @@ class Bridge:
             self.last_turn = self.view.items
 
     def on_message(self, topic, payload):
+        if topic == topics.status(self.session.sid):
+            if payload == b"" and self.profile.dismissable:  # removed on the Vita (ours are never empty)
+                self._dismiss()
+            return
         if topic == topics.ONLINE:
             self.online = payload == b"1"
             self._sync_requests()

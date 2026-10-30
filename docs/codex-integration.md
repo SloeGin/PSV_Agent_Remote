@@ -30,6 +30,7 @@ no checkout or pip installation is needed on the machine installing it.
 | Idle reply | Starts a turn in the same conversation using its existing model and runtime settings. |
 | Busy reply | Queues one text reply; a newer reply replaces it. Cancel removes it, and Stop discards it. |
 | Stop | Interrupts the active turn; confirmation requires observing the interrupted state. |
+| Remove (session list) | Hides an idle session from the Vita until it is active again: a new turn, or a decision it needs. |
 
 File, network and permission approvals, secret input, nonblocking questions, and
 questions exceeding these limits stay on the computer. Unsupported requests,
