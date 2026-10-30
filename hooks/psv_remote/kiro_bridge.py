@@ -24,7 +24,8 @@ class KiroProfile(AgentProfile):
     name = "kiro"
     capabilities = {"approval": True, "questions": False, "reply": True, "stop": True}
     has_native_fallback = False  # the Vita is this session's only approval window
-    dismissable = False  # ...and its only interface: hiding it would strand the session
+    dismissable = False  # ...and its only interface: hiding it would strand the session,
+    end_on_removal = True  # so removing it there ends it
 
     def session_view(self, raw):
         return session_view(raw)

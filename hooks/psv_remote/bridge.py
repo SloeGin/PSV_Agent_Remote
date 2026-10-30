@@ -49,6 +49,8 @@ class AgentProfile:
     # Removing an idle session on the Vita hides it until it wakes. Off when the Vita
     # is the session's only interface (Kiro): nothing else could ever wake it.
     dismissable = True
+    # Removing the session on the Vita ends it instead (Kiro: the bridge owns the session).
+    end_on_removal = False
 
     def session_view(self, raw):
         raise NotImplementedError
@@ -90,6 +92,7 @@ class Bridge:
         self.tracker = remote.tracker(cfg, sid)
         # Removed on the Vita while idle: stay off it until the session wakes up.
         self.dismissed = self._load_dismissed()
+        self.ended = False  # removed on the Vita and end_on_removal: run loops return
         # A killed worker may leave retained sheets. Clear only our persisted
         # request IDs before issuing fresh IDs; never replay old decisions.
         for rid in self.tracker.ids():
@@ -256,7 +259,9 @@ class Bridge:
 
     def on_message(self, topic, payload):
         if topic == topics.status(self.session.sid):
-            if payload == b"" and self.profile.dismissable:  # removed on the Vita (ours are never empty)
+            if payload == b"" and self.profile.end_on_removal:  # removed on the Vita (ours are never empty)
+                self.ended = True
+            elif payload == b"" and self.profile.dismissable:
                 self._dismiss()
             return
         if topic == topics.ONLINE:
@@ -382,6 +387,8 @@ def run_reconnecting(bus_factory, native, cfg, host_id, profile: AgentProfile, s
                     message = bus.next_message(0.1)
                     if message is not None:
                         bridge.on_message(*message)
+                    if bridge.ended:
+                        return  # finally closes the bridge; the caller ends the native session
             except BusError:
                 remote.quietly(bus.close)
                 sleep(1)

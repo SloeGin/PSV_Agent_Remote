@@ -251,14 +251,41 @@ def test_broker_drop_keeps_the_kiro_session(tmp_path):
     assert native.starts == [] and native.stops == []  # the session itself was never touched
 
 
-def test_kiro_session_is_not_dismissed_by_removal(setup):
-    # The Vita is a Kiro session's only interface: hiding it would strand it.
-    bridge, bus, native, clock = setup
-    sid = bridge.session.sid
-    native.raw = snap(state="idle", requests=[])
-    bridge.tick()
-    bus.publish(topics.status(sid), b"", retain=True)
-    bridge.on_message(topics.status(sid), b"")
-    clock[0] += 31
-    bridge.tick()
-    assert topics.status(sid) in bus.retained
+class RemovedOnVita(FakeBus):
+    """Delivers one removal of this session, then fails the test if the bridge keeps going."""
+
+    def __init__(self, fail_clears=False):
+        super().__init__()
+        self.removed, self.fail_clears = False, fail_clears
+
+    def sid(self):
+        reply = next(t for t in self.subscribed if t.endswith("/reply"))
+        return reply.removeprefix("claude/session/").removesuffix("/reply")
+
+    def next_message(self, timeout_s):
+        if not self.removed:
+            self.removed = True
+            return (topics.status(self.sid()), b"")
+        raise AssertionError("the bridge kept running after its session was removed")
+
+    def publish(self, topic, payload, retain=False, qos=0):
+        if self.fail_clears and payload == b"":
+            raise BusError("connection lost")
+        super().publish(topic, payload, retain, qos)
+
+
+def test_kiro_removal_ends_the_bridge(tmp_path):
+    # The Vita is a Kiro session's only interface: removing it there ends it.
+    native = Native(snap(state="idle", requests=[]))
+    bus = RemovedOnVita()
+    kiro_run(lambda: bus, native, Config(state_dir=tmp_path, wait_timeout_s=5), "host", sleep=lambda s: None)
+    sid = bus.sid()
+    assert (topics.status(sid), b"", True) in bus.published  # its topics are cleared on the way out
+    assert (topics.turn(sid), b"", True) in bus.published
+    assert native.stops == []  # kiro-cli itself is ended by psv_kiro's native.close()
+
+
+def test_end_survives_publish_failure(tmp_path):
+    native = Native(snap(state="idle", requests=[]))
+    kiro_run(lambda: RemovedOnVita(fail_clears=True), native, Config(state_dir=tmp_path, wait_timeout_s=5),
+             "host", sleep=lambda s: None)  # returns instead of raising or hanging
