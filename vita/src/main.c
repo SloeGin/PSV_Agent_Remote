@@ -4,6 +4,7 @@
 #include <psp2/ime_dialog.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/rng.h>
+#include <psp2/kernel/threadmgr.h>
 #include <psp2/power.h>
 #include <psp2/system_param.h>
 #include <psp2/touch.h>
@@ -18,6 +19,7 @@
 #include "model.h"
 #include "net.h"
 #include "protocol.h"
+#include "screen.h"
 #include "sessionlist.h"
 #include "settings.h"
 #include "ui.h"
@@ -27,6 +29,7 @@
 #define BANNER_MS 3000
 #define BROKER_IME_MAX 21
 #define TEXT_IME_MAX 200
+#define SCREEN_OFF_POLL_US (50 * 1000)
 #define RESPONSE_BYTES 8192
 
 static uint64_t now_ms(void) { return sceKernelGetProcessTimeWide() / 1000; }
@@ -504,10 +507,22 @@ int main(void) {
     input_init(&input);
     input_set_front_enabled(&input, app.cfg.front_touch);
     app.last_activity = now_ms();
+    Screen screen;
+    screen_init(&screen);
 
     for (;;) {
         uint64_t now = now_ms();
-        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT); /* we dim ourselves; never suspend */
+        if (screen.off) {
+            /* An app can't set the backlight (sceAVConfigSetDisplayBrightness is
+             * refused) and scePowerRequestDisplayOff wakes to the lock screen. So
+             * while dark, block only standby and the system's screen off: the
+             * system dims the backlight itself, and the default tick on waking
+             * brings it back. */
+            sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+            sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_OFF);
+        } else {
+            sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT); /* we dim ourselves; never suspend */
+        }
 
         if (input.front_enabled != (app.cfg.front_touch != 0)) input_set_front_enabled(&input, app.cfg.front_touch);
         InputFrame frame = read_input(now);
@@ -586,17 +601,21 @@ int main(void) {
         }
         app.view.net_err = app.view.net == NET_UP ? NETERR_NONE : net_broker_error(app.cfg.active);
 
-        /* vita2d_start_drawing resets the vertex pool and overwrites last frame's
-         * vertices and circle indices; wait until the GPU has finished with them. */
-        vita2d_wait_rendering_done();
-        vita2d_start_drawing();
-        vita2d_clear_screen();
-        if (app.list.open) ui_draw_sessions(&app.model, &app.list, &app.view, now);
-        else if (app.settings.open) ui_draw_settings(&app.model, &app.cfg, &app.settings, connected, &app.view, now);
-        else ui_draw(&app.model, &app.view, now);
-        vita2d_end_drawing();
-        vita2d_common_dialog_update();
-        vita2d_swap_buffers();
+        if (screen_step(&screen, app.view.dimmed, app.ime != IME_NONE)) {
+            /* vita2d_start_drawing resets the vertex pool and overwrites last frame's
+             * vertices and circle indices; wait until the GPU has finished with them. */
+            vita2d_wait_rendering_done();
+            vita2d_start_drawing();
+            vita2d_clear_screen();
+            if (app.list.open) ui_draw_sessions(&app.model, &app.list, &app.view, now);
+            else if (app.settings.open) ui_draw_settings(&app.model, &app.cfg, &app.settings, connected, &app.view, now);
+            else ui_draw(&app.model, &app.view, now);
+            vita2d_end_drawing();
+            vita2d_common_dialog_update();
+            vita2d_swap_buffers();
+        } else {
+            sceKernelDelayThread(SCREEN_OFF_POLL_US); /* no vblank to pace us: poll input and messages */
+        }
         if (quit) break;
     }
 

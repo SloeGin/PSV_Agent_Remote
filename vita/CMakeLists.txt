@@ -36,6 +36,7 @@ add_executable(${PROJECT_NAME}
   src/view.c
   src/outbox.c
   src/reconnect.c
+  src/screen.c
   src/mqtt_client.c
   src/net.c
   src/audio.c
