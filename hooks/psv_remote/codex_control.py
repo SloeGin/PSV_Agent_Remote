@@ -10,6 +10,9 @@ import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+from .voice import DEFAULT_LANGUAGE, DEFAULT_MODEL
 
 
 def control_path(cfg, host_id):
@@ -34,7 +37,15 @@ def configuration_summary(cfg, host_id, options) -> dict[str, str]:
         "App Server sockets": ", ".join(str(p) for p in options.get("app_paths") or []) or "none",
         "workspace": str(options["cwd"]) if options.get("cwd") is not None else "any",
         "max sessions": str(options.get("limit")),
+        "voice": _voice_summary(options.get("voice") or {}),
     }
+
+
+def _voice_summary(voice: dict) -> str:
+    if voice.get("enabled") is False:
+        return "off"
+    model = Path(voice.get("model") or DEFAULT_MODEL).name
+    return f"{model}, {voice.get('language') or DEFAULT_LANGUAGE}"
 
 
 class Leases:

@@ -16,6 +16,12 @@ from psv_remote.config import load_config
 from psv_remote.remote import scoped_session_id
 
 
+def voice_options(args) -> dict:
+    """The manager's voice settings; None leaves a default to the transcriber."""
+    return {"enabled": not args.no_voice, "whisper": args.voice_whisper, "model": args.voice_model,
+            "language": args.voice_language, "prompt": args.voice_prompt}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("transport", choices=("app-server", "ipc", "watch", "vscode-client"))
@@ -31,6 +37,11 @@ def main():
     parser.add_argument("--max-sessions", type=int, default=16, help="Watch: maximum managed sessions (1-16)")
     parser.add_argument("--lease-managed", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--replace-managed", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--no-voice", action="store_true", help="Watch: don't transcribe voice replies")
+    parser.add_argument("--voice-whisper", help="Watch: whisper-cli path (default: found on PATH)")
+    parser.add_argument("--voice-model", help="Watch: whisper.cpp ggml model path")
+    parser.add_argument("--voice-language", help="Watch: whisper language (default zh)")
+    parser.add_argument("--voice-prompt", help="Watch: whisper initial prompt")
     args = parser.parse_args()
     managed = args.transport in ("watch", "vscode-client")
     if not args.host_id or (not managed and not args.thread):
@@ -54,7 +65,8 @@ def main():
             app_paths = [default_app]
         options = dict(ipc_path=(args.ipc_socket or root / "ipc/ipc.sock") if args.experimental_ipc else None,
                        database=args.state_db or root / "state_5.sqlite", app_paths=app_paths,
-                       cwd=str(args.cwd.resolve()) if args.cwd else None, limit=args.max_sessions)
+                       cwd=str(args.cwd.resolve()) if args.cwd else None, limit=args.max_sessions,
+                       voice=voice_options(args))
         if args.transport == "vscode-client":
             from psv_remote.vscode_client import run_client
             return run_client(cfg, args.host_id, options, args.replace_managed)

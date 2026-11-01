@@ -18,6 +18,7 @@ from .config import DEFAULT_PATH, LEGACY_PATH
 from .pending import _safe
 from .rpc import DependencyError, NativeError
 from .remote import scoped_session_id
+from .transcriber import Transcriber
 
 
 def session_lock_path(cfg, host_id, thread_id):
@@ -289,7 +290,8 @@ class DiscoverySlot:
             self.client = None
 
 
-def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None, limit=16, lease_managed=False):
+def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None, limit=16, lease_managed=False,
+          voice=None):
     digest = hashlib.sha256(host_id.encode()).hexdigest()[:16]
     lock = lock_file(cfg.state_dir / f"codex-{digest}.watch.lock")
     if lock is None:
@@ -300,11 +302,13 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
     for path in dict.fromkeys(app_paths):
         slots.append(DiscoverySlot(lambda path=path: AppServerDiscovery(path, cwd)))
     supervisor = Supervisor(cfg, host_id, limit)
-    options = dict(ipc_path=ipc_path, database=database, app_paths=list(app_paths), cwd=cwd, limit=limit)
+    options = dict(ipc_path=ipc_path, database=database, app_paths=list(app_paths), cwd=cwd, limit=limit,
+                   voice=voice or {"enabled": True})
     control = None
     count = None
     probe = BrokerProbe(lambda: open_bus(cfg), cfg, broker_configured())
     watch = BrokerWatch(lambda: open_bus(cfg))
+    transcriber = Transcriber(cfg, host_id, options["voice"], lambda will=None: open_bus(cfg, will))
 
     restore = make_restore(cfg, host_id, supervisor.workers)
     try:
@@ -317,8 +321,10 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
             if probe.poll():
                 print(probe.message or f"MQTT broker reachable at {cfg.broker_host}:{cfg.broker_port}.", flush=True)
             watch.poll()
+            transcriber.poll()
             running = bridged_sessions(host_id, supervisor.workers)
-            panel = {**watch.snapshot(running), "removed": removed_sessions(cfg.state_dir, running, watch)}
+            panel = {**watch.snapshot(running), "removed": removed_sessions(cfg.state_dir, running, watch),
+                     "voice": transcriber.state()}
             control.update(current, len({route.thread_id for route in routes}), broker=probe.state(), panel=panel)
             if current != count:
                 print(f"Codex manager: {current} bridge(s) running.", flush=True)
@@ -326,6 +332,7 @@ def watch(cfg, host_id, *, ipc_path=None, database=None, app_paths=(), cwd=None,
             control.stop.wait(2)
     finally:
         try:
+            transcriber.close()
             watch.close()
             supervisor.close()
             for slot in slots:

@@ -29,6 +29,13 @@ def manager_arguments(host_id, options):
         args += ["--app-server-socket", str(path)]
     if options["cwd"] is not None:
         args += ["--cwd", options["cwd"]]
+    voice = options.get("voice") or {}
+    if voice.get("enabled") is False:
+        args.append("--no-voice")
+    else:
+        for name in ("whisper", "model", "language", "prompt"):
+            if voice.get(name):
+                args += [f"--voice-{name}", voice[name]]
     return args
 
 
@@ -57,7 +64,7 @@ def resolve_conflict(state, ours, replace):
                         "(pkill -f \"psv_codex.py watch\"), then run Reconnect.")
 
 
-PANEL_FIELDS = ("vita", "sessions", "removed")
+PANEL_FIELDS = ("vita", "sessions", "removed", "voice")
 
 
 def running_status(state, log_path, kiro=None) -> dict:

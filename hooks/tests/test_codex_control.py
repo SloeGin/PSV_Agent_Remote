@@ -313,7 +313,8 @@ from psv_remote.vscode_client import handle_command, kiro_status  # noqa: E402
 PANEL_STATE = {"bridges": 1, "discovered": 1, "mode": "extension",
                "vita": {"online": True, "mode": "sofa"},
                "sessions": [{"sid": "a", "agent": "codex", "project": "notes", "state": "idle", "local": True}],
-               "removed": [{"sid": "codex-b", "project": "api"}]}
+               "removed": [{"sid": "codex-b", "project": "api"}],
+               "voice": {"state": "off", "message": "off", "leader": None}}
 
 
 def test_status_carries_panel_fields():
@@ -529,3 +530,93 @@ def test_kiro_log_is_not_followed_through_a_symlink(tmp_path, monkeypatch):
     monkeypatch.setattr(vc.subprocess, "Popen", lambda args, **kw: spawned.append(args))
     handle_command(Config(state_dir=state), "host", json.dumps({"cmd": "kiro_start", "cwd": "/p"}), [])
     assert victim.read_text() == "precious" and spawned == []
+
+
+# ---- voice settings travel with the manager's configuration ----
+
+VOICE = {"enabled": True, "whisper": "/opt/w/whisper-cli", "model": "/m/ggml-medium.bin", "language": "en",
+         "prompt": "hello there"}
+
+
+def test_manager_arguments_forward_voice():
+    args = manager_arguments("host", {**OPTIONS, "voice": VOICE})
+    pairs = dict(zip(args, args[1:]))
+    assert pairs["--voice-whisper"] == "/opt/w/whisper-cli" and pairs["--voice-model"] == "/m/ggml-medium.bin"
+    assert pairs["--voice-language"] == "en" and pairs["--voice-prompt"] == "hello there"
+    off = manager_arguments("host", {**OPTIONS, "voice": {"enabled": False}})
+    assert "--no-voice" in off and "--voice-model" not in off
+    defaults = manager_arguments("host", {**OPTIONS, "voice": {"enabled": True}})
+    assert not [a for a in defaults if a.startswith("--voice") or a == "--no-voice"]
+
+
+def test_voice_settings_change_the_configuration_key():
+    a = configuration_key(Config(), "host", {**OPTIONS, "voice": VOICE})
+    b = configuration_key(Config(), "host", {**OPTIONS, "voice": {**VOICE, "language": "zh"}})
+    assert a != b
+
+
+def test_configuration_summary_mentions_voice():
+    assert configuration_summary(Config(), "host", {**OPTIONS, "voice": VOICE})["voice"] == "ggml-medium.bin, en"
+    assert configuration_summary(Config(), "host", {**OPTIONS, "voice": {"enabled": True}})["voice"] == \
+        "ggml-large-v3-turbo-q5_0.bin, zh"
+    assert configuration_summary(Config(), "host", {**OPTIONS, "voice": {"enabled": False}})["voice"] == "off"
+
+
+def test_running_status_includes_voice():
+    voice = {"state": "active", "message": "this computer transcribes", "leader": "host"}
+    status = running_status({**PANEL_STATE, "voice": voice}, "/tmp/x.log", {"bridges": [], "errors": {}})
+    assert status["voice"] == voice
+    no_voice = {k: v for k, v in PANEL_STATE.items() if k != "voice"}
+    assert "sessions" not in running_status(no_voice, "/tmp/x.log", None)  # a manager without voice is old
+
+
+def test_cli_parses_voice_flags():
+    from psv_codex import voice_options
+    import argparse
+    ns = argparse.Namespace(no_voice=False, voice_whisper="~/w", voice_model=None, voice_language="en", voice_prompt=None)
+    assert voice_options(ns) == {"enabled": True, "whisper": "~/w", "model": None, "language": "en", "prompt": None}
+    assert voice_options(argparse.Namespace(no_voice=True, voice_whisper=None, voice_model=None, voice_language=None,
+                                            voice_prompt=None))["enabled"] is False
+
+
+def test_watch_polls_and_closes_transcriber(monkeypatch, tmp_path):
+    from psv_remote import codex_manager as manager
+    made = []
+
+    class FakeTranscriber:
+        def __init__(self, cfg, host_id, voice, bus_factory):
+            self.voice, self.polls, self.closed = voice, 0, False
+            made.append(self)
+
+        def poll(self):
+            self.polls += 1
+
+        def state(self):
+            return {"state": "active", "message": "this computer transcribes", "leader": "host"}
+
+        def close(self):
+            self.closed = True
+
+    class FakeControl:
+        def __init__(self, *a, **k):
+            self.loops, self.panel = 0, None
+            self.stop = type("E", (), {"wait": lambda s, t: None})()
+
+        def should_stop(self):
+            self.loops += 1
+            return self.loops > 1
+
+        def update(self, *a, panel=None, **k):
+            self.panel = panel
+
+        def close(self):
+            pass
+
+    controls = []
+    monkeypatch.setattr(manager, "Transcriber", FakeTranscriber)
+    monkeypatch.setattr(manager, "ManagerControl", lambda *a, **k: controls.append(FakeControl()) or controls[-1])
+    monkeypatch.setattr(manager.BrokerProbe, "poll", lambda self: False)
+    monkeypatch.setattr(manager.BrokerWatch, "poll", lambda self: None)
+    manager.watch(Config(state_dir=tmp_path), "host", voice=VOICE)
+    assert made[0].voice == VOICE and made[0].polls == 1 and made[0].closed
+    assert controls[0].panel["voice"]["state"] == "active"
