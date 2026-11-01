@@ -73,7 +73,7 @@
         "psvAgentRemote.voice.enabled": { "type": "boolean", "default": true, "scope": "application", "description": "Transcribe voice replies from the Vita on this machine with whisper.cpp (when it is installed). Machines on the same broker pick one transcriber automatically." },
         "psvAgentRemote.voice.whisperPath": { "type": "string", "default": "", "scope": "machine", "description": "Path to whisper-cli. Empty searches PATH and the Homebrew locations." },
         "psvAgentRemote.voice.model": { "type": "string", "default": "", "scope": "machine", "description": "whisper.cpp ggml model file. Empty uses the model fetched by PSV Agent Remote: Download Voice Model." },
-        "psvAgentRemote.voice.language": { "type": "string", "default": "zh", "scope": "machine", "description": "Spoken language passed to whisper (zh also handles English words mixed into Chinese)." },
+        "psvAgentRemote.voice.language": { "type": "string", "default": "auto", "scope": "machine", "description": "Spoken language passed to whisper. auto detects it per recording and keeps Chinese mixed with English as spoken; a fixed language such as zh turns other languages into it." },
         "psvAgentRemote.voice.prompt": { "type": "string", "default": "", "scope": "machine", "description": "Initial prompt for whisper. Empty uses a built-in prompt for Simplified Chinese mixed with English." }
       }
     }

@@ -23,7 +23,7 @@ TIMEOUT_S = 25.0  # the Vita gives up 30 s after release; a stuck job must not b
 INCOMPLETE = "Audio incomplete — try again"
 
 DEFAULT_MODEL = Path.home() / ".cache/psv-agent-remote/models/ggml-large-v3-turbo-q5_0.bin"
-DEFAULT_LANGUAGE = "zh"
+DEFAULT_LANGUAGE = "auto"  # "zh" writes English speech out as Chinese; auto still keeps mixed speech mixed
 # Simplified Chinese with English words in it: keeps whisper from translating
 # the English or drifting into Traditional characters.
 DEFAULT_PROMPT = "以下是普通话的句子，中间夹杂一些English单词，比如commit、push、review、merge。"

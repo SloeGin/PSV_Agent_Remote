@@ -40,7 +40,7 @@ def main():
     parser.add_argument("--no-voice", action="store_true", help="Watch: don't transcribe voice replies")
     parser.add_argument("--voice-whisper", help="Watch: whisper-cli path (default: found on PATH)")
     parser.add_argument("--voice-model", help="Watch: whisper.cpp ggml model path")
-    parser.add_argument("--voice-language", help="Watch: whisper language (default zh)")
+    parser.add_argument("--voice-language", help="Watch: whisper language (default auto)")
     parser.add_argument("--voice-prompt", help="Watch: whisper initial prompt")
     args = parser.parse_args()
     managed = args.transport in ("watch", "vscode-client")

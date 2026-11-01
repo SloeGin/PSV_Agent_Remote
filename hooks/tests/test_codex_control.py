@@ -558,7 +558,7 @@ def test_voice_settings_change_the_configuration_key():
 def test_configuration_summary_mentions_voice():
     assert configuration_summary(Config(), "host", {**OPTIONS, "voice": VOICE})["voice"] == "ggml-medium.bin, en"
     assert configuration_summary(Config(), "host", {**OPTIONS, "voice": {"enabled": True}})["voice"] == \
-        "ggml-large-v3-turbo-q5_0.bin, zh"
+        "ggml-large-v3-turbo-q5_0.bin, auto"
     assert configuration_summary(Config(), "host", {**OPTIONS, "voice": {"enabled": False}})["voice"] == "off"
 
 

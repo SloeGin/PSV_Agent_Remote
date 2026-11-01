@@ -185,7 +185,7 @@ def test_availability_messages(tmp_path):
 def test_defaults():
     assert voice.DEFAULT_MODEL.name == "ggml-large-v3-turbo-q5_0.bin"
     assert voice.DEFAULT_MODEL.parent == Path.home() / ".cache/psv-agent-remote/models"
-    assert voice.DEFAULT_LANGUAGE == "zh"
+    assert voice.DEFAULT_LANGUAGE == "auto"  # "zh" turns English speech into Chinese
     assert "English" in voice.DEFAULT_PROMPT
 
 

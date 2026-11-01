@@ -98,7 +98,7 @@ the audio goes from the Vita to the broker to the transcriber and nowhere else.
 
 When several computers on the same broker can transcribe, they pick one
 automatically: the most capable model wins, then the fastest machine. If it
-goes away, another takes over. **Voice: Language** (default `zh`) and
+goes away, another takes over. **Voice: Language** (default `auto`) and
 **Voice: Prompt** tune whisper; turn **Voice: Enabled** off to keep a machine
 out of it.
 

@@ -135,6 +135,6 @@ test('manifest contributes voice settings and the download command', () => {
   const settings = manifest.contributes.configuration.properties;
   for (const key of ['enabled', 'whisperPath', 'model', 'language', 'prompt'])
     assert.ok(settings[`psvAgentRemote.voice.${key}`], key);
-  assert.equal(settings['psvAgentRemote.voice.language'].default, 'zh');
+  assert.equal(settings['psvAgentRemote.voice.language'].default, 'auto');
   assert.ok(manifest.contributes.commands.some((c) => c.command === 'psvAgentRemote.downloadVoiceModel'));
 });
