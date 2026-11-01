@@ -193,7 +193,7 @@ reply shows **NOT CONFIRMED** and preserves typed text.
 
 To speak a reply, highlight **Speak** in the reply drawer, hold ✕ while talking
 (up to 30 seconds) and release. The transcript is added to the draft; nothing is
-sent until you select **Send**. Speak is dimmed when no computer on the broker
+sent until you select **Send**. Hold ✕ on **Keep speaking** in the draft to add more. Speak is dimmed when no computer on the broker
 can transcribe, and the Vita's microphone is unmuted only while you hold ✕. Front touch can be disabled
 in Settings.
 

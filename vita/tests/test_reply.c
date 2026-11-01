@@ -44,8 +44,9 @@ static void t_reply_layout(void) {
     set_draft(&r, "hi");
     l = reply_layout(&r, IDLE);
     CHECK(l.n_rows == 2 && l.rows[0] == RR_CONTINUE && l.rows[1] == RR_VERIFY);
-    CHECK(l.box == RB_DRAFT && l.n_box == 3);
-    CHECK(l.box_items[0] == RR_SEND && l.box_items[1] == RR_EDIT && l.box_items[2] == RR_DISCARD);
+    CHECK(l.box == RB_DRAFT && l.n_box == 4);
+    CHECK(l.box_items[0] == RR_SEND && l.box_items[1] == RR_SPEAK && l.box_items[2] == RR_EDIT &&
+          l.box_items[3] == RR_DISCARD);
 
     r = fresh();
     l = reply_layout(&r, WORKING);
@@ -74,7 +75,7 @@ static void t_reply_layout(void) {
 static void t_reply_move(void) {
     Reply r = fresh();
     set_draft(&r, "hi");
-    ReplyLayout l = reply_layout(&r, IDLE); /* Continue, Verify, [Send Edit Discard] */
+    ReplyLayout l = reply_layout(&r, IDLE); /* Continue, Verify, [Send Keep-speaking Edit Discard] */
     reply_move(&r, &l, 1, 0);
     CHECK(r.line == 0);
     r.line = -1;
@@ -83,7 +84,7 @@ static void t_reply_move(void) {
     reply_move(&r, &l, 0, 1);
     CHECK(r.col == 1);
     reply_move(&r, &l, 0, 5);
-    CHECK(r.col == 2);
+    CHECK(r.col == 3);
     reply_move(&r, &l, 0, -9);
     CHECK(r.col == 0);
     reply_move(&r, &l, -1, 0);
@@ -410,7 +411,22 @@ static void t_edit_too_long_toasts(void) {
     CHECK(reply_activate(&r, IDLE, "x", 0).kind == RA_OPEN_IME);
 }
 
+static void t_keep_speaking_appends(void) {
+    Reply r = fresh();
+    set_draft(&r, "typed");
+    r.drawer = RD_OPEN;
+    pick(&r, IDLE, RR_SPEAK); /* Keep speaking, in the draft box */
+    CHECK(reply_activate(&r, IDLE, "v1", 1000).kind == RA_START_VOICE);
+    reply_voice_stop(&r, true, 2000);
+    CHECK(reply_on_voice(&r, "v1", "and spoken", false, false, IDLE, 3000) == VO_ADDED);
+    CHECK_STR(r.draft, "typed and spoken");
+    ReplyLayout l = reply_layout(&r, IDLE);
+    ReplyItem it;
+    CHECK(reply_selected(&r, &l, &it) && it == RR_SEND);
+}
+
 int main(void) {
+    RUN(t_keep_speaking_appends);
     RUN(t_speak_starts_voice);
     RUN(t_result_becomes_draft);
     RUN(t_result_appends_with_space);

@@ -1367,7 +1367,7 @@ static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
         }
         unsigned label_c = matta ? C_ROSE : it == RR_SPEAK && !v->voice_ok ? C_MUTED : C_TEXT;
         gfx_text(matta ? F_SANS_MED : F_SANS, x + 16, y + 10, label_c, BODY_SIZE, reply_item_label(it), -1);
-        const char *note = matta ? "stop now" : it == RR_TYPE ? "keyboard" : it == RR_SPEAK ? "hold ✕" : "";
+        const char *note = matta ? "stop now" : it == RR_TYPE ? "keyboard" : it == RR_SPEAK ? "hold" : "";
         int nx = x + w - 16 - gfx_text_width(F_MONO, 12, note, -1) - (on ? 26 : 0);
         gfx_text(F_MONO, nx, y + 14, C_MUTED, 12, note, -1);
         if (on) gfx_glyph(GLYPH_CROSS, x + w - 30, y + 14, 14, C_TABON);
@@ -1377,8 +1377,18 @@ static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
         bool queued = l.box == RB_QUEUED;
         int by = y + 6, bh = box_h - 6 - 4;
         gfx_panel(x, by, w, bh, 10, queued ? C_AMBER_DEEP : C_LINE2, C_PANEL);
-        gfx_text_spaced(F_MONO_MED, x + 14, by + 10, queued ? C_AMBER : C_MUTED, 10, 1,
-                        queued ? "QUEUED · SENDS WHEN THIS TURN ENDS" : "DRAFT");
+        char head[48] = "DRAFT";
+        unsigned head_c = queued ? C_AMBER : C_MUTED;
+        if (queued) snprintf(head, sizeof head, "%s", "QUEUED · SENDS WHEN THIS TURN ENDS");
+        else if (r->voice == VS_RECORDING) { /* Keep speaking, held */
+            snprintf(head, sizeof head, "RECORDING %d:%02d", v->voice_secs / 60, v->voice_secs % 60);
+            head_c = C_ROSE;
+            int segs = (v->voice_level + 9) / 10, lx = x + w - 14 - 10 * 10;
+            for (int k = 0; k < 10; k++) gfx_round_rect(lx + k * 10, by + 10, 7, 10, 2, k < segs ? C_TEAL : C_LINE2);
+        } else if (r->voice == VS_TRANSCRIBING) {
+            snprintf(head, sizeof head, "%s", "TRANSCRIBING…");
+        }
+        gfx_text_spaced(F_MONO_MED, x + 14, by + 10, head_c, 10, 1, head);
         const char *t = reply_box_text(r, &l);
         int ty = by + 26;
         for (int k = 0; k < n_text; k++, ty += 27) {
@@ -1394,6 +1404,8 @@ static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
             unsigned fill = l.box_items[c] == RR_DISCARD ? C_ROSE : C_AMBER; /* like Remove in the delete dialog */
             gfx_panel(bx, btn_y, bw, RBOX_BTN_H, 9, on ? fill : C_LINE, on ? fill : C_PANEL);
             const char *lab = reply_item_label(l.box_items[c]);
+            if (l.box_items[c] == RR_SPEAK)
+                lab = r->voice == VS_RECORDING ? "Release to add" : r->voice == VS_TRANSCRIBING ? "…" : "Keep speaking";
             int tw = gfx_text_width(F_SANS, 14, lab, -1) + (on ? 21 : 0), tx = bx + (bw - tw) / 2;
             if (on) {
                 gfx_glyph(GLYPH_CROSS, tx, btn_y + (RBOX_BTN_H - 14) / 2, 14, fill);

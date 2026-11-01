@@ -311,7 +311,7 @@ static void t_speak_row_labels(void) {
     m.s[0].reply.drawer = RD_OPEN;
     UiView v = {.net=NET_UP, .battery_pct=-1, .voice_ok=true};
     draw_drawer(&m, &v);
-    CHECK(text_seen("Type…") && text_seen("Speak") && text_seen("hold ✕"));
+    CHECK(text_seen("Type…") && text_seen("Speak") && text_seen("hold") && !text_seen("hold ✕"));
     model_free(&m);
 }
 
@@ -345,7 +345,27 @@ static void t_speak_dimmed_without_transcriber(void) {
     model_free(&m);
 }
 
+static void t_draft_box_keep_speaking(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    session(&m, "claude-a", "{\"state\":\"idle\",\"project\":\"notes\"}");
+    Reply *r = &m.s[0].reply;
+    r->drawer = RD_OPEN;
+    snprintf(r->draft, sizeof r->draft, "%s", "先 review");
+    UiView v = {.net=NET_UP, .battery_pct=-1, .voice_ok=true, .voice_secs=7, .voice_level=50};
+    draw_drawer(&m, &v);
+    CHECK(text_seen("Send") && text_seen("Keep speaking") && text_seen("Edit") && text_seen("Discard"));
+    r->voice = VS_RECORDING;
+    draw_drawer(&m, &v);
+    CHECK(text_seen("RECORDING 0:07") && text_seen("Release to add") && !text_seen("Keep speaking"));
+    r->voice = VS_TRANSCRIBING;
+    draw_drawer(&m, &v);
+    CHECK(text_seen("TRANSCRIBING…"));
+    model_free(&m);
+}
+
 int main(void) {
+    RUN(t_draft_box_keep_speaking);
     RUN(t_speak_row_labels);
     RUN(t_speak_row_recording_and_transcribing);
     RUN(t_speak_dimmed_without_transcriber);

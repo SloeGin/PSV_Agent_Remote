@@ -34,6 +34,7 @@ ReplyLayout reply_layout(const Reply *r, bool idle, bool working) {
     if (r->allow_text && r->draft[0]) {
         l.box = RB_DRAFT;
         l.box_items[l.n_box++] = RR_SEND;
+        l.box_items[l.n_box++] = RR_SPEAK; /* "Keep speaking": more voice, appended */
         l.box_items[l.n_box++] = RR_EDIT;
         l.box_items[l.n_box++] = RR_DISCARD;
     } else if (r->allow_text && reply_in_flight(r) && r->sent_typed) {

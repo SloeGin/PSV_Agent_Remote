@@ -244,7 +244,7 @@ static void voice_finish(App *app, bool send, uint64_t now) {
     if (n > 0) net_publish(topic, body, (size_t)n, 1, 0);
     Session *s = model_find(&app->model, app->rec.sid);
     if (s) reply_voice_stop(&s->reply, keep, now);
-    if (send && !keep) show_toast(app, "Hold ✕ to talk", now);
+    if (send && !keep) show_toast(app, "Hold to talk", now);
     app->rec.on = false;
     audio_hold(false);
 }

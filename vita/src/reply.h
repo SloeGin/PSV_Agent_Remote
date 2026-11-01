@@ -33,7 +33,7 @@ typedef struct {
     ReplyItem rows[4];
     int n_rows;            /* the vertical list, top to bottom */
     ReplyBox box;          /* the box under the rows, if any */
-    ReplyItem box_items[3];
+    ReplyItem box_items[4];
     int n_box;             /* its buttons, left to right */
 } ReplyLayout;
 
