@@ -17,6 +17,9 @@ set(VITA_VERSION  "01.00")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O2")
+# Room after the code segment for the import tables vita-elf-create appends
+# there; without it, adding a library can fail with "segment 1 overlaps".
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--defsym,__sce_headroom=0x4000")
 
 file(GLOB MQTT_PACKET_SRCS third_party/MQTTPacket/*.c)
 
@@ -37,6 +40,8 @@ add_executable(${PROJECT_NAME}
   src/outbox.c
   src/reconnect.c
   src/screen.c
+  src/voicebuf.c
+  src/mic.c
   src/mqtt_client.c
   src/net.c
   src/audio.c
@@ -76,6 +81,7 @@ target_link_libraries(${PROJECT_NAME}
   SceNet_stub
   SceNetCtl_stub
   SceAudio_stub
+  SceAudioIn_stub
   ScePower_stub
   SceIme_stub
   SceAppMgr_stub
