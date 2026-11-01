@@ -27,6 +27,9 @@ Claude. See [Codex support and limitations](docs/codex-integration.md).
 - **Replies and stop.** Continue an idle session with a preset or typed message,
   queue a reply while it works, or request a stop. Delivery progress appears on
   the Vita.
+- **Voice replies.** Hold ✕ on **Speak** and talk; a computer running the VS Code
+  extension transcribes it with whisper.cpp, and the text arrives as a draft you
+  check before sending. See [voice replies](vscode-extension/README.md#voice-replies).
 - **Readable conversations.** View your prompt and the agent's latest answer with
   Markdown, scrolling, and horizontal panning for wide tables and code blocks.
 - **Multiple sessions.** Switch between sessions, hear a chime when one needs
@@ -186,7 +189,12 @@ lockout. The rear panel scrolls/pans without pressing buttons. Any button closes
 the capability popup without also activating the page underneath.
 
 Typed replies remain drafts until **Send** is selected. A failed or unconfirmed
-reply shows **NOT CONFIRMED** and preserves typed text. Front touch can be disabled
+reply shows **NOT CONFIRMED** and preserves typed text.
+
+To speak a reply, highlight **Speak** in the reply drawer, hold ✕ while talking
+(up to 30 seconds) and release. The transcript is added to the draft; nothing is
+sent until you select **Send**. Speak is dimmed when no computer on the broker
+can transcribe, and the Vita's microphone is unmuted only while you hold ✕. Front touch can be disabled
 in Settings.
 
 The application pages, home icon and LiveArea use the independent `#DDD23B`
