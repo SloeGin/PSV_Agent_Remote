@@ -290,7 +290,65 @@ static void t_kiro_remove_dialog_says_end(void) {
     model_free(&m);
 }
 
+static int text_color(const char *text) {
+    for (int i = 0; i < n_draws; i++)
+        if (!strcmp(draws[i].text, text)) return (int)draws[i].color;
+    return -1;
+}
+
+/* An idle Claude session with its reply drawer open, drawn until the drawer settles. */
+static void draw_drawer(Model *m, UiView *v) {
+    for (int i = 0; i < 30; i++) {
+        n_draws = 0;
+        ui_draw(m, v, 0);
+    }
+}
+
+static void t_speak_row_labels(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    session(&m, "claude-a", "{\"state\":\"idle\",\"project\":\"notes\"}");
+    m.s[0].reply.drawer = RD_OPEN;
+    UiView v = {.net=NET_UP, .battery_pct=-1, .voice_ok=true};
+    draw_drawer(&m, &v);
+    CHECK(text_seen("Type…") && text_seen("Speak") && text_seen("hold ✕"));
+    model_free(&m);
+}
+
+static void t_speak_row_recording_and_transcribing(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    session(&m, "claude-a", "{\"state\":\"idle\",\"project\":\"notes\"}");
+    m.s[0].reply.drawer = RD_OPEN;
+    m.s[0].reply.voice = VS_RECORDING;
+    UiView v = {.net=NET_UP, .battery_pct=-1, .voice_ok=true, .voice_secs=7, .voice_level=60};
+    draw_drawer(&m, &v);
+    CHECK(text_seen("0:07"));
+    m.s[0].reply.voice = VS_TRANSCRIBING;
+    draw_drawer(&m, &v);
+    CHECK(text_seen("Transcribing…") && !text_seen("0:07"));
+    model_free(&m);
+}
+
+static void t_speak_dimmed_without_transcriber(void) {
+    Model m;
+    model_init(&m, MODE_SOFA);
+    session(&m, "claude-a", "{\"state\":\"idle\",\"project\":\"notes\"}");
+    m.s[0].reply.drawer = RD_OPEN;
+    UiView v = {.net=NET_UP, .battery_pct=-1, .voice_ok=true};
+    draw_drawer(&m, &v);
+    int on = text_color("Speak"), type = text_color("Type…");
+    v.voice_ok = false;
+    draw_drawer(&m, &v);
+    int off = text_color("Speak");
+    CHECK(on == type && off != on && off != -1);
+    model_free(&m);
+}
+
 int main(void) {
+    RUN(t_speak_row_labels);
+    RUN(t_speak_row_recording_and_transcribing);
+    RUN(t_speak_dimmed_without_transcriber);
     RUN(t_kiro_remove_dialog_says_end);
     CHECK(ui_init());
     RUN(t_theme_switch_preserves_semantic_colors_and_body);

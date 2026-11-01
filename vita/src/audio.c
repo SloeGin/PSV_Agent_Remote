@@ -61,8 +61,24 @@ void audio_init(void) {
     if (th >= 0) sceKernelStartThread(th, 0, NULL);
 }
 
+static bool g_hold, g_held;
+static Sound g_held_sound;
+
 void audio_play(Sound s) {
     if (g_sema < 0) return;
+    if (g_hold) {
+        g_held = true;
+        g_held_sound = s;
+        return;
+    }
     g_pending = s;
     sceKernelSignalSema(g_sema, 1);
+}
+
+void audio_hold(bool hold) {
+    g_hold = hold;
+    if (!hold && g_held) {
+        g_held = false;
+        audio_play(g_held_sound);
+    }
 }

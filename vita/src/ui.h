@@ -26,6 +26,9 @@ typedef struct {
     int sheet_scroll; /* line at the top of the approval code box */
     int table_focus;  /* the overflowing table the right stick pans, or -1 */
     int table_pan[UI_MAX_TABLES]; /* pixels each table is shifted left */
+    bool voice_ok;    /* a computer on the broker can transcribe: Speak is live */
+    int voice_level;  /* 0-100 while recording */
+    int voice_secs;   /* seconds recorded so far */
 } UiView;
 
 bool ui_init(void);

@@ -212,6 +212,7 @@ static int net_thread(SceSize args, void *argp) {
         ok = ok && mqtt_publish(c, TOPIC_MODE, mode, strlen(mode), 1, 1) >= 0;
         ok = ok && mqtt_subscribe(c, "claude/session/#", 0) == 0;
         ok = ok && mqtt_subscribe(c, TOPIC_ONLINE, 0) == 0;
+        ok = ok && mqtt_subscribe(c, TOPIC_TRANSCRIBERS, 0) == 0;
         g_online_dirty = 0;
         if (ok) g_status = NET_UP;
         while (ok && g_running && g_generation == generation) {

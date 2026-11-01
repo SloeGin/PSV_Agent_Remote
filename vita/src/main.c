@@ -20,6 +20,7 @@
 #include "net.h"
 #include "protocol.h"
 #include "screen.h"
+#include "mic.h"
 #include "sessionlist.h"
 #include "settings.h"
 #include "ui.h"
@@ -30,6 +31,10 @@
 #define BROKER_IME_MAX 21
 #define TEXT_IME_MAX 200
 #define SCREEN_OFF_POLL_US (50 * 1000)
+#define VOICE_RATE 16000
+#define VOICE_CHUNK_SAMPLES 8000 /* 0.5 s per message */
+#define VOICE_MAX_MS 30000
+#define VOICE_MIN_MS 500
 #define RESPONSE_BYTES 8192
 
 static uint64_t now_ms(void) { return sceKernelGetProcessTimeWide() / 1000; }
@@ -136,10 +141,17 @@ typedef struct {
     PowerWatch power;    /* plug in → desk mode, unplug → sofa mode */
     char broker_last[64]; /* broker_key() the sessions on screen came from */
     int reply_drag_acc;  /* sideways drag not yet turned into a reply-button step */
+    struct {             /* a voice reply being recorded while ✕ is held */
+        bool on;
+        char sid[64], vid[24];
+        int seq, fill, samples;
+        uint64_t start_ms;
+        int16_t buf[VOICE_CHUNK_SAMPLES];
+    } rec;
 } App;
 
 static void show_toast(App *app, const char *msg, uint64_t now) {
-    snprintf(app->view.toast, sizeof app->view.toast, "%s", msg);
+    utf8_copy(app->view.toast, sizeof app->view.toast, msg, strlen(msg)); /* a transcriber error can be long */
     app->view.toast_until_ms = now + TOAST_MS;
 }
 
@@ -176,20 +188,112 @@ static void publish_reply(const char *sid, const ReplyAct *a) {
     if (n > 0) net_publish(topic, buf, (size_t)n, 1, 1);
 }
 
-static void run_reply_act(App *app, const Session *s, const ReplyAct *a) {
+/* ---------- voice replies ---------- */
+
+static void voice_publish_chunk(App *app) {
+    if (app->rec.fill == 0) return;
+    char topic[96];
+    snprintf(topic, sizeof topic, "claude/voice/%s/%d", app->rec.vid, app->rec.seq++);
+    net_publish(topic, app->rec.buf, (size_t)app->rec.fill * sizeof app->rec.buf[0], 0, 0);
+    app->rec.samples += app->rec.fill;
+    app->rec.fill = 0;
+}
+
+/* Move what the mic captured into chunks; a full chunk goes out at once. */
+static void voice_drain(App *app) {
+    for (;;) {
+        int n = mic_read(app->rec.buf + app->rec.fill, VOICE_CHUNK_SAMPLES - app->rec.fill);
+        if (n <= 0) return;
+        app->rec.fill += n;
+        if (app->rec.fill == VOICE_CHUNK_SAMPLES) voice_publish_chunk(app);
+    }
+}
+
+static void voice_start(App *app, Session *s, const char *vid, uint64_t now) {
+    if (model_transcribers(&app->model) == 0) {
+        reply_voice_stop(&s->reply, false, now);
+        show_toast(app, "No computer can transcribe; see the VS Code extension", now);
+        return;
+    }
+    if (!mic_start()) {
+        reply_voice_stop(&s->reply, false, now);
+        show_toast(app, "Microphone unavailable", now);
+        return;
+    }
+    audio_hold(true); /* a notification sound would end up in the recording */
+    app->rec.on = true;
+    snprintf(app->rec.sid, sizeof app->rec.sid, "%s", s->sid);
+    snprintf(app->rec.vid, sizeof app->rec.vid, "%s", vid);
+    app->rec.seq = app->rec.fill = app->rec.samples = 0;
+    app->rec.start_ms = now;
+    app->view.voice_level = app->view.voice_secs = 0;
+}
+
+/* ✕ released (or the time is up, or the drawer went away): send it, or drop a tap. */
+static void voice_finish(App *app, bool send, uint64_t now) {
+    if (!app->rec.on) return;
+    voice_drain(app);
+    mic_stop();
+    voice_drain(app);
+    bool keep = send && now - app->rec.start_ms >= VOICE_MIN_MS;
+    if (keep) voice_publish_chunk(app);
+    char topic[96], body[160];
+    snprintf(topic, sizeof topic, "claude/voice/%s/end", app->rec.vid);
+    int n = protocol_build_voice_end(app->rec.sid, app->rec.seq, app->rec.samples * 1000 / VOICE_RATE, !keep,
+                                     body, sizeof body);
+    if (n > 0) net_publish(topic, body, (size_t)n, 1, 0);
+    Session *s = model_find(&app->model, app->rec.sid);
+    if (s) reply_voice_stop(&s->reply, keep, now);
+    if (send && !keep) show_toast(app, "Hold ✕ to talk", now);
+    app->rec.on = false;
+    audio_hold(false);
+}
+
+/* Every frame while recording: stream chunks, feed the row, stop when due. */
+static void voice_pump(App *app, const Actions *a, uint64_t now) {
+    if (!app->rec.on) return;
+    Session *s = model_find(&app->model, app->rec.sid);
+    Session *cur = model_current(&app->model);
+    if (!s) {
+        voice_finish(app, false, now);
+        return;
+    }
+    voice_drain(app);
+    app->view.voice_level = mic_level();
+    app->view.voice_secs = (int)((now - app->rec.start_ms) / 1000);
+    wake(app, now);
+    if (!a->cross_down || now - app->rec.start_ms >= VOICE_MAX_MS || cur != s || s->reply.drawer != RD_OPEN)
+        voice_finish(app, true, now);
+}
+
+static void show_voice_outcome(App *app, VoiceOutcome o, const char *error, uint64_t now) {
+    if (o == VO_FULL) show_toast(app, "Draft is full — Send or Discard first", now);
+    else if (o == VO_ERROR) show_toast(app, error, now);
+}
+
+static void run_reply_act(App *app, Session *s, const ReplyAct *a, uint64_t now) {
     if (a->kind == RA_PUBLISH || a->kind == RA_WITHDRAW) {
         publish_reply(s->sid, a);
     } else if (a->kind == RA_OPEN_IME) {
         snprintf(app->ime_sid, sizeof app->ime_sid, "%s", s->sid);
         app->ime = start_ime(IME_REPLY, "Reply to agent", a->text) ? IME_REPLY : IME_NONE;
+    } else if (a->kind == RA_START_VOICE) {
+        voice_start(app, s, a->id, now);
+    } else if (a->kind == RA_TOAST) {
+        show_toast(app, a->text, now);
     }
 }
 
 static void handle_messages(App *app, uint64_t now) {
     InMsg msg;
     while (net_pop(&msg)) {
-        char sid[64], rid[24];
+        char sid[64], rid[24], host[64];
         unsigned ev = 0;
+        if (protocol_transcriber_topic(msg.topic, host)) {
+            model_on_transcriber(&app->model, host, msg.len > 0);
+            free(msg.payload);
+            continue;
+        }
         TopicKind kind = protocol_parse_topic(msg.topic, sid, rid);
         if (kind == TOPIC_STATUS) {
             static StatusMsg st; /* large; keep it off the stack */
@@ -213,6 +317,18 @@ static void handle_messages(App *app, uint64_t now) {
             Session *s = model_find(&app->model, sid);
             if (s && protocol_parse_reply_state((const char *)msg.payload, msg.len, id, state))
                 reply_on_state(&s->reply, id, state, now);
+        } else if (kind == TOPIC_VOICE && msg.len > 0) {
+            static char text[REPLY_BYTES];
+            char id[24];
+            bool is_error;
+            Session *s = model_find(&app->model, sid);
+            if (s && protocol_parse_voice((const char *)msg.payload, msg.len, id, text, sizeof text, &is_error)) {
+                bool keyboard = app->ime == IME_REPLY && !strcmp(app->ime_sid, sid);
+                VoiceOutcome o = reply_on_voice(&s->reply, id, text, is_error, keyboard, model_reply_idle(s),
+                                                model_reply_working(s), now);
+                show_voice_outcome(app, o, text, now);
+            }
+            net_publish(msg.topic, "", 0, 1, 1); /* read: clear the retained result */
         }
         free(msg.payload);
         if (ev & MEV_NEW_REQUEST) {
@@ -285,7 +401,9 @@ static void finish_ime(App *app, const char *text, bool entered, uint64_t now) {
             char id[24];
             new_reply_id(id);
             ReplyAct a = reply_ime_done(&s->reply, text, entered, id, now);
-            run_reply_act(app, s, &a);
+            run_reply_act(app, s, &a, now);
+            /* a transcript that arrived while the keyboard was open */
+            show_voice_outcome(app, reply_voice_flush(&s->reply, model_reply_idle(s), model_reply_working(s)), "", now);
         }
         break;
     }
@@ -358,7 +476,7 @@ static void handle_main_actions(App *app, const Actions *a, uint64_t now) {
             char id[24];
             new_reply_id(id);
             ReplyAct act = reply_activate(rp, idle, working, id, now);
-            run_reply_act(app, s, &act);
+            run_reply_act(app, s, &act, now);
         }
         return;
     }
@@ -560,6 +678,7 @@ int main(void) {
         const Broker *broker = linked >= 0 && linked < app.cfg.n_brokers ? &app.cfg.brokers[linked]
                                : app.cfg.n_brokers ? &app.cfg.brokers[app.cfg.active] : NULL;
         if (broker_switched(app.broker_last, broker)) {
+            voice_finish(&app, false, now);
             model_clear(&app.model);
             app.list.cursor = 0;
             app.list.confirming = false;
@@ -573,8 +692,11 @@ int main(void) {
             reply_sync(&s->reply, s->n_reqs > 0 || !(model_reply_idle(s) || model_reply_working(s)), now);
             ReplyAct t = reply_tick(&s->reply, now);
             if (t.kind == RA_WITHDRAW) publish_reply(s->sid, &t);
+            if (reply_voice_timed_out(&s->reply, now)) show_toast(&app, "Transcription timed out", now);
         }
         update_scrolls(&app, now);
+        voice_pump(&app, &a, now);
+        app.view.voice_ok = model_transcribers(&app.model) > 0;
 
         int connected = net_connected_index();
         if (connected >= 0 && connected != app.cfg.active) {

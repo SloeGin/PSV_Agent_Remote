@@ -1230,6 +1230,7 @@ static const char *reply_item_label(ReplyItem it) {
     case RR_CONTINUE: return "Continue";
     case RR_VERIFY: return "Verify it further";
     case RR_TYPE: return "Type…";
+    case RR_SPEAK: return "Speak";
     case RR_MATTA: return "待った!";
     case RR_SEND: return "Send";
     case RR_EDIT: return "Edit";
@@ -1299,7 +1300,24 @@ static void draw_reply_header(int sy, const char *chip, unsigned chip_c, const c
     text_fit(F_SANS, tx, sy + 13, dim_title ? C_MUTED : C_TEXT, 16, title, sx - 30 - tx, true);
 }
 
-static void draw_reply(const Session *s, uint64_t now) {
+/* The Speak row while recording (dot, time, level) or waiting for the text. */
+static void draw_speak_progress(const Reply *r, const UiView *v, int x, int y, int w) {
+    if (r->voice == VS_TRANSCRIBING) {
+        gfx_text(F_SANS, x + 16, y + 10, C_MUTED, BODY_SIZE, "Transcribing…", -1);
+        return;
+    }
+    gfx_round_rect(x + 16, y + 16, 10, 10, 5, C_ROSE);
+    char t[16];
+    snprintf(t, sizeof t, "%d:%02d", v->voice_secs / 60, v->voice_secs % 60);
+    gfx_text(F_MONO, x + 34, y + 12, C_TEXT, 16, t, -1);
+    int segs = (v->voice_level + 9) / 10, bx = x + 100;
+    for (int k = 0; k < 10; k++)
+        gfx_round_rect(bx + k * 14, y + 14, 10, 14, 2, k < segs ? C_TEAL : C_LINE2);
+    const char *note = "release to send";
+    gfx_text(F_MONO, x + w - 16 - gfx_text_width(F_MONO, 12, note, -1), y + 14, C_MUTED, 12, note, -1);
+}
+
+static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
     const Reply *r = &s->reply;
     bool idle = model_reply_idle(s), working = model_reply_working(s);
     ReplyLayout l = reply_layout(r, idle, working);
@@ -1342,8 +1360,14 @@ static void draw_reply(const Session *s, uint64_t now) {
         else if (i > 0 && r->line != i - 1) gfx_rect(x + 8, y, w - 16, 1, C_LINE2);
         ReplyItem it = l.rows[i];
         bool matta = it == RR_MATTA;
-        gfx_text(matta ? F_SANS_MED : F_SANS, x + 16, y + 10, matta ? C_ROSE : C_TEXT, BODY_SIZE, reply_item_label(it), -1);
-        const char *note = matta ? "stop now" : it == RR_TYPE ? "keyboard" : "";
+        if (it == RR_SPEAK && r->voice != VS_NONE) {
+            draw_speak_progress(r, v, x, y, w);
+            hit(HIT_REPLY_ROW, i * 4, x, y, w, RROW_H);
+            continue;
+        }
+        unsigned label_c = matta ? C_ROSE : it == RR_SPEAK && !v->voice_ok ? C_MUTED : C_TEXT;
+        gfx_text(matta ? F_SANS_MED : F_SANS, x + 16, y + 10, label_c, BODY_SIZE, reply_item_label(it), -1);
+        const char *note = matta ? "stop now" : it == RR_TYPE ? "keyboard" : it == RR_SPEAK ? "hold ✕" : "";
         int nx = x + w - 16 - gfx_text_width(F_MONO, 12, note, -1) - (on ? 26 : 0);
         gfx_text(F_MONO, nx, y + 14, C_MUTED, 12, note, -1);
         if (on) gfx_glyph(GLYPH_CROSS, x + w - 30, y + 14, 14, C_TABON);
@@ -1454,7 +1478,7 @@ void ui_draw(const Model *m, const UiView *v, uint64_t now) {
         g_sheet_y = SCREEN_H;
         g_sheet_rid[0] = 0;
         g_hint_reply = model_reply_idle(s) || model_reply_working(s);
-        draw_reply(s, now);
+        draw_reply(s, v, now);
         draw_hints(reply_open ? HINT_REPLY : reply_peek ? HINT_REPLY_PEEK : HINT_PLAIN, m->mode);
     }
     draw_overlays(v, now);
