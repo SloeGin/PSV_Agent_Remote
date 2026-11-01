@@ -47,7 +47,10 @@ ReplyLayout reply_layout(const Reply *r, bool idle, bool working) {
     } else if (working && r->allow_stop) {
         l.rows[l.n_rows++] = RR_MATTA;
     }
-    if (r->allow_text && l.box == RB_NONE) l.rows[l.n_rows++] = RR_TYPE;
+    if (r->allow_text && l.box == RB_NONE) {
+        l.rows[l.n_rows++] = RR_TYPE;
+        l.rows[l.n_rows++] = RR_SPEAK;
+    }
     return l;
 }
 
@@ -124,6 +127,14 @@ static ReplyAct send(Reply *r, ReplyKind kind, const char *text, bool typed, con
     return a;
 }
 
+/* UTF-8 code points: what the keyboard counts. */
+static int chars(const char *s) {
+    int n = 0;
+    for (; *s; s++)
+        if (((unsigned char)*s & 0xC0) != 0x80) n++;
+    return n;
+}
+
 ReplyAct reply_activate(Reply *r, bool idle, bool working, const char *new_id, uint64_t now) {
     ReplyAct none = {RA_NONE, RK_TEXT, "", NULL};
     ReplyLayout l = reply_layout(r, idle, working);
@@ -141,11 +152,26 @@ ReplyAct reply_activate(Reply *r, bool idle, bool working, const char *new_id, u
         a.kind = RA_OPEN_IME;
         a.text = r->draft;
         break;
-    case RR_EDIT:
+    case RR_SPEAK:
+        if (r->voice != VS_NONE) break;
+        r->voice = VS_RECORDING;
+        r->voice_ms = now;
+        snprintf(r->voice_id, sizeof r->voice_id, "%s", new_id);
+        a.kind = RA_START_VOICE;
+        snprintf(a.id, sizeof a.id, "%s", new_id);
+        break;
+    case RR_EDIT: {
+        const char *text = l.box == RB_QUEUED ? r->sent : r->draft;
+        if (chars(text) > REPLY_KEYBOARD_CHARS) { /* never open the keyboard on a cut copy */
+            a.kind = RA_TOAST;
+            a.text = "Too long to edit — Send or Discard";
+            break;
+        }
         r->editing_sent = l.box == RB_QUEUED;
         a.kind = RA_OPEN_IME;
-        a.text = r->editing_sent ? r->sent : r->draft;
+        a.text = text;
         break;
+    }
     case RR_SEND: {
         char text[REPLY_BYTES];
         snprintf(text, sizeof text, "%s", r->draft);
@@ -226,4 +252,60 @@ ReplyAct reply_tick(Reply *r, uint64_t now) {
 void reply_sync(Reply *r, bool request_pending, uint64_t now) {
     (void)now;
     if (request_pending && r->drawer == RD_OPEN) fold(r);
+}
+
+/* ---------- voice ---------- */
+
+void reply_voice_stop(Reply *r, bool send, uint64_t now) {
+    if (r->voice != VS_RECORDING) return;
+    if (send) {
+        r->voice = VS_TRANSCRIBING;
+        r->voice_ms = now;
+    } else {
+        r->voice = VS_NONE;
+        r->voice_id[0] = 0;
+    }
+}
+
+/* Never truncates: a transcript that does not fit is not added at all. */
+static VoiceOutcome append(Reply *r, const char *text, bool idle, bool working) {
+    size_t have = strlen(r->draft), add = strlen(text);
+    if (have + (have ? 1 : 0) + add >= sizeof r->draft) return VO_FULL;
+    if (have) r->draft[have++] = ' ';
+    memcpy(r->draft + have, text, add + 1);
+    if (r->drawer == RD_OPEN) { /* ready to send */
+        ReplyLayout l = reply_layout(r, idle, working);
+        if (l.box == RB_DRAFT) reply_select(r, l.n_rows, 0);
+    } else {
+        fold(r);
+    }
+    return VO_ADDED;
+}
+
+VoiceOutcome reply_on_voice(Reply *r, const char *id, const char *text, bool is_error, bool keyboard_open,
+                            bool idle, bool working, uint64_t now) {
+    (void)now;
+    if (r->voice != VS_TRANSCRIBING || strcmp(id, r->voice_id)) return VO_IGNORED;
+    r->voice = VS_NONE;
+    r->voice_id[0] = 0;
+    if (is_error) return VO_ERROR;
+    if (keyboard_open) {
+        snprintf(r->voice_held, sizeof r->voice_held, "%s", text);
+        return VO_HELD;
+    }
+    return append(r, text, idle, working);
+}
+
+VoiceOutcome reply_voice_flush(Reply *r, bool idle, bool working) {
+    if (!r->voice_held[0]) return VO_IGNORED;
+    VoiceOutcome o = append(r, r->voice_held, idle, working);
+    r->voice_held[0] = 0;
+    return o;
+}
+
+bool reply_voice_timed_out(Reply *r, uint64_t now) {
+    if (r->voice != VS_TRANSCRIBING || now - r->voice_ms < REPLY_VOICE_TIMEOUT_MS) return false;
+    r->voice = VS_NONE;
+    r->voice_id[0] = 0;
+    return true;
 }

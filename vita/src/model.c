@@ -45,6 +45,24 @@ void model_clear(Model *m) {
     m->sel = -1;
     m->shown_sid[0] = m->shown_rid[0] = 0;
     m->sheet_hidden = false;
+    m->n_transcribers = 0;
+}
+
+void model_on_transcriber(Model *m, const char *host, bool present) {
+    for (int i = 0; i < m->n_transcribers; i++) {
+        if (strcmp(m->transcribers[i], host)) continue;
+        if (!present) {
+            memmove(m->transcribers[i], m->transcribers[i + 1], sizeof m->transcribers[0] * (size_t)(m->n_transcribers - i - 1));
+            m->n_transcribers--;
+        }
+        return;
+    }
+    if (present && m->n_transcribers < MAX_TRANSCRIBERS)
+        snprintf(m->transcribers[m->n_transcribers++], sizeof m->transcribers[0], "%s", host);
+}
+
+int model_transcribers(const Model *m) {
+    return m->n_transcribers;
 }
 
 static int find(const Model *m, const char *sid) {

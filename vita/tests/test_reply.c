@@ -37,7 +37,8 @@ static Reply queued(const char *text) {
 static void t_reply_layout(void) {
     Reply r = fresh();
     ReplyLayout l = reply_layout(&r, IDLE);
-    CHECK(l.n_rows == 3 && l.rows[0] == RR_CONTINUE && l.rows[1] == RR_VERIFY && l.rows[2] == RR_TYPE);
+    CHECK(l.n_rows == 4 && l.rows[0] == RR_CONTINUE && l.rows[1] == RR_VERIFY && l.rows[2] == RR_TYPE &&
+          l.rows[3] == RR_SPEAK);
     CHECK(l.box == RB_NONE && l.n_box == 0);
 
     set_draft(&r, "hi");
@@ -48,7 +49,7 @@ static void t_reply_layout(void) {
 
     r = fresh();
     l = reply_layout(&r, WORKING);
-    CHECK(l.n_rows == 2 && l.rows[0] == RR_MATTA && l.rows[1] == RR_TYPE && l.box == RB_NONE);
+    CHECK(l.n_rows == 3 && l.rows[0] == RR_MATTA && l.rows[1] == RR_TYPE && l.rows[2] == RR_SPEAK && l.box == RB_NONE);
     set_draft(&r, "hi");
     l = reply_layout(&r, WORKING);
     CHECK(l.n_rows == 1 && l.rows[0] == RR_MATTA && l.box == RB_DRAFT);
@@ -308,7 +309,117 @@ static void t_reply_new_reply_replaces(void) {
     CHECK(r.status == RS_SENDING);
 }
 
+/* ---------- voice ---------- */
+
+/* Speak pressed, recorded and released: waiting for the transcript of id. */
+static Reply transcribing(const char *id) {
+    Reply r = fresh();
+    r.drawer = RD_OPEN;
+    pick(&r, IDLE, RR_SPEAK);
+    reply_activate(&r, IDLE, id, 1000);
+    reply_voice_stop(&r, true, 2000);
+    return r;
+}
+
+static void t_speak_starts_voice(void) {
+    Reply r = fresh();
+    r.drawer = RD_OPEN;
+    pick(&r, IDLE, RR_SPEAK);
+    ReplyAct a = reply_activate(&r, IDLE, "v1", 1000);
+    CHECK(a.kind == RA_START_VOICE);
+    CHECK_STR(a.id, "v1");
+    CHECK(r.voice == VS_RECORDING);
+    CHECK(reply_activate(&r, IDLE, "v2", 1100).kind == RA_NONE); /* already recording */
+    reply_voice_stop(&r, false, 1200);                            /* too short: discarded */
+    CHECK(r.voice == VS_NONE && !r.voice_id[0]);
+}
+
+static void t_result_becomes_draft(void) {
+    Reply r = transcribing("v1");
+    CHECK(r.voice == VS_TRANSCRIBING);
+    CHECK(reply_on_voice(&r, "v1", "先 review 一下", false, false, IDLE, 3000) == VO_ADDED);
+    CHECK_STR(r.draft, "先 review 一下");
+    CHECK(r.voice == VS_NONE);
+    ReplyItem it;
+    ReplyLayout l = reply_layout(&r, IDLE);
+    CHECK(reply_selected(&r, &l, &it) && it == RR_SEND);
+}
+
+static void t_result_appends_with_space(void) {
+    Reply r = transcribing("v1");
+    set_draft(&r, "typed");
+    CHECK(reply_on_voice(&r, "v1", "spoken", false, false, IDLE, 3000) == VO_ADDED);
+    CHECK_STR(r.draft, "typed spoken");
+}
+
+static void t_second_result_ignored(void) {
+    Reply r = transcribing("v1");
+    CHECK(reply_on_voice(&r, "v1", "one", false, false, IDLE, 3000) == VO_ADDED);
+    CHECK(reply_on_voice(&r, "v1", "one", false, false, IDLE, 3001) == VO_IGNORED);
+    CHECK(reply_on_voice(&r, "v9", "other", false, false, IDLE, 3002) == VO_IGNORED);
+    CHECK_STR(r.draft, "one");
+}
+
+static void t_result_held_while_keyboard_open(void) {
+    Reply r = transcribing("v1");
+    set_draft(&r, "typing");
+    CHECK(reply_on_voice(&r, "v1", "spoken", false, true, IDLE, 3000) == VO_HELD);
+    CHECK_STR(r.draft, "typing");
+    reply_ime_done(&r, "typed more", true, "x", 3500); /* the keyboard closes with its own text */
+    CHECK(reply_voice_flush(&r, IDLE) == VO_ADDED);
+    CHECK_STR(r.draft, "typed more spoken");
+    CHECK(reply_voice_flush(&r, IDLE) == VO_IGNORED);
+}
+
+static void t_result_overflow_is_full(void) {
+    Reply r = transcribing("v1");
+    char big[REPLY_BYTES];
+    memset(big, 'a', sizeof big - 10);
+    big[sizeof big - 10] = 0;
+    set_draft(&r, big);
+    CHECK(reply_on_voice(&r, "v1", "this does not fit", false, false, IDLE, 3000) == VO_FULL);
+    CHECK_STR(r.draft, big);
+}
+
+static void t_error_result(void) {
+    Reply r = transcribing("v1");
+    CHECK(reply_on_voice(&r, "v1", "Audio incomplete — try again", true, false, IDLE, 3000) == VO_ERROR);
+    CHECK(!r.draft[0] && r.voice == VS_NONE);
+}
+
+static void t_transcribing_times_out(void) {
+    Reply r = transcribing("v1"); /* released at 2000 */
+    CHECK(!reply_voice_timed_out(&r, 2000 + REPLY_VOICE_TIMEOUT_MS - 1));
+    CHECK(reply_voice_timed_out(&r, 2000 + REPLY_VOICE_TIMEOUT_MS));
+    CHECK(!reply_voice_timed_out(&r, 2000 + REPLY_VOICE_TIMEOUT_MS + 1)); /* once */
+    CHECK(reply_on_voice(&r, "v1", "late", false, false, IDLE, 40000) == VO_IGNORED);
+}
+
+static void t_edit_too_long_toasts(void) {
+    Reply r = fresh();
+    char text[REPLY_BYTES] = "";
+    for (int i = 0; i < 201; i++) strcat(text, "字");
+    set_draft(&r, text);
+    r.drawer = RD_OPEN;
+    pick(&r, IDLE, RR_EDIT);
+    ReplyAct a = reply_activate(&r, IDLE, "x", 0);
+    CHECK(a.kind == RA_TOAST);
+    CHECK_STR(a.text, "Too long to edit — Send or Discard");
+    text[strlen(text) - 3] = 0; /* 200 characters fit the keyboard */
+    set_draft(&r, text);
+    CHECK(reply_activate(&r, IDLE, "x", 0).kind == RA_OPEN_IME);
+}
+
 int main(void) {
+    RUN(t_speak_starts_voice);
+    RUN(t_result_becomes_draft);
+    RUN(t_result_appends_with_space);
+    RUN(t_second_result_ignored);
+    RUN(t_result_held_while_keyboard_open);
+    RUN(t_result_overflow_is_full);
+    RUN(t_error_result);
+    RUN(t_transcribing_times_out);
+    RUN(t_edit_too_long_toasts);
     RUN(t_reply_layout);
     RUN(t_reply_move);
     RUN(t_reply_square_cycle);

@@ -649,7 +649,24 @@ static void t_model_clear(void) {
     model_free(&m);
 }
 
+static void t_transcriber_presence_counts(void) {
+    static Model m;
+    model_init(&m, MODE_SOFA);
+    CHECK(model_transcribers(&m) == 0);
+    model_on_transcriber(&m, "mac", true);
+    model_on_transcriber(&m, "linux", true);
+    model_on_transcriber(&m, "mac", true);
+    CHECK(model_transcribers(&m) == 2);
+    model_on_transcriber(&m, "mac", false);
+    CHECK(model_transcribers(&m) == 1);
+    model_on_transcriber(&m, "unknown", false);
+    CHECK(model_transcribers(&m) == 1);
+    model_clear(&m); /* another broker: its own transcribers arrive again */
+    CHECK(model_transcribers(&m) == 0);
+}
+
 int main(void) {
+    RUN(t_transcriber_presence_counts);
     RUN(t_idle_since);
     RUN(t_model_clear);
     RUN(t_summary_rev_changes);

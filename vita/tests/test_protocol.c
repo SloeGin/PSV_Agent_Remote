@@ -237,7 +237,59 @@ static void t_parse_reply_state(void) {
     for (size_t i = 0; i < sizeof bad / sizeof *bad; i++) CHECK(!protocol_parse_reply_state(bad[i], strlen(bad[i]), id, state));
 }
 
+static void t_build_voice_end(void) {
+    char buf[128];
+    int n = protocol_build_voice_end("s1", 3, 1500, false, buf, sizeof buf);
+    CHECK(n > 0);
+    CHECK_STR(buf, "{\"sid\":\"s1\",\"chunks\":3,\"ms\":1500}");
+    n = protocol_build_voice_end("s1", 0, 0, true, buf, sizeof buf);
+    CHECK_STR(buf, "{\"sid\":\"s1\",\"cancel\":true}");
+}
+
+static void t_parse_voice(void) {
+    char id[24], text[REPLY_BYTES];
+    bool is_error = true;
+    const char *ok = "{\"id\":\"v1\",\"text\":\"先 review\"}";
+    CHECK(protocol_parse_voice(ok, strlen(ok), id, text, sizeof text, &is_error));
+    CHECK_STR(id, "v1");
+    CHECK_STR(text, "先 review");
+    CHECK(!is_error);
+    const char *err = "{\"id\":\"v1\",\"error\":\"Audio incomplete\"}";
+    CHECK(protocol_parse_voice(err, strlen(err), id, text, sizeof text, &is_error));
+    CHECK(is_error);
+    CHECK_STR(text, "Audio incomplete");
+    const char *bad[] = {"{\"id\":\"v1\"}", "{\"text\":\"x\"}", "[]", ""};
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++)
+        CHECK(!protocol_parse_voice(bad[i], strlen(bad[i]), id, text, sizeof text, &is_error));
+}
+
+static void t_topic_kind_voice(void) {
+    char sid[64], rid[24];
+    CHECK(protocol_parse_topic("claude/session/abc/voice", sid, rid) == TOPIC_VOICE);
+    CHECK_STR(sid, "abc");
+}
+
+static void t_transcriber_topic(void) {
+    char host[64];
+    CHECK(protocol_transcriber_topic("claude/transcriber/mac-mini", host));
+    CHECK_STR(host, "mac-mini");
+    CHECK(!protocol_transcriber_topic("claude/transcriber/", host));
+    CHECK(!protocol_transcriber_topic("claude/transcriber/a/b", host));
+    CHECK(!protocol_transcriber_topic("claude/session/x/status", host));
+}
+
+static void t_build_reply_max(void) {
+    static char text[REPLY_BYTES], buf[8192];
+    memset(text, '"', sizeof text - 1); /* worst case: every byte escaped */
+    CHECK(protocol_build_reply("0123456789abcdef", RK_TEXT, text, buf, sizeof buf) > 0);
+}
+
 int main(void) {
+    RUN(t_build_voice_end);
+    RUN(t_parse_voice);
+    RUN(t_topic_kind_voice);
+    RUN(t_transcriber_topic);
+    RUN(t_build_reply_max);
     RUN(t_turn_topic);
     RUN(t_reply_topics);
     RUN(t_build_reply);

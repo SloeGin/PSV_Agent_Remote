@@ -7,7 +7,7 @@
 
 #define PROTOCOL_MAX_PAYLOAD 131072
 
-typedef enum { TOPIC_OTHER, TOPIC_STATUS, TOPIC_REQUEST, TOPIC_TURN, TOPIC_REPLY_STATE } TopicKind;
+typedef enum { TOPIC_OTHER, TOPIC_STATUS, TOPIC_REQUEST, TOPIC_TURN, TOPIC_REPLY_STATE, TOPIC_VOICE } TopicKind;
 
 TopicKind protocol_parse_topic(const char *topic, char sid[64], char rid[24]);
 
@@ -36,3 +36,12 @@ int protocol_build_response(const char *rid, const char *choice, char *out, size
 int protocol_build_reply(const char *id, ReplyKind kind, const char *text, char *out, size_t cap);
 /* The listener's {"id","state"} on claude/session/<sid>/reply_state. */
 bool protocol_parse_reply_state(const char *json, size_t len, char id[24], char state[16]);
+
+/* Voice replies. Audio goes to claude/voice/<vid>/<seq>, closed by
+ * claude/voice/<vid>/end carrying {"sid","chunks","ms"} or {"sid","cancel":true}. */
+#define TOPIC_TRANSCRIBERS "claude/transcriber/+"
+int protocol_build_voice_end(const char *sid, int chunks, int ms, bool cancel, char *out, size_t cap);
+/* The transcriber's {"id","text"} or {"id","error"} on claude/session/<sid>/voice. */
+bool protocol_parse_voice(const char *json, size_t len, char id[24], char *text, size_t cap, bool *is_error);
+/* claude/transcriber/<host>: a computer that can transcribe (empty payload: gone). */
+bool protocol_transcriber_topic(const char *topic, char host[64]);

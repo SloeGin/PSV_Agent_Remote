@@ -39,7 +39,7 @@ static void t_reply_without_stop_capability(void) {
     status(&m, "codex", "{\"state\":\"running\",\"agent\":\"codex\","
            "\"capabilities\":{\"reply\":true,\"stop\":false}}");
     ReplyLayout l = reply_layout(&m.s[0].reply, false, true);
-    CHECK(l.n_rows == 1 && l.rows[0] == RR_TYPE);
+    CHECK(l.n_rows == 2 && l.rows[0] == RR_TYPE && l.rows[1] == RR_SPEAK);
     m.s[0].reply.editing_sent = true;
     status(&m, "codex", "{\"state\":\"idle\",\"agent\":\"codex\"}");
     ReplyAct a = reply_ime_done(&m.s[0].reply, "keep my words", true, "late", 100);

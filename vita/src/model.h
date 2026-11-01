@@ -114,6 +114,8 @@ typedef struct {
     Reply reply; /* the reply drawer for this session */
 } Session;
 
+#define MAX_TRANSCRIBERS 8
+
 typedef struct {
     Session s[MAX_SESSIONS];
     int n;
@@ -125,12 +127,16 @@ typedef struct {
     int shown_step;
     bool sheet_hidden; /* the decision sheet is collapsed to its one-line peek */
     Mode mode;
+    char transcribers[MAX_TRANSCRIBERS][64]; /* computers that can transcribe voice replies */
+    int n_transcribers;
 } Model;
 
 void model_init(Model *m, Mode mode);
 void model_free(Model *m);
 /* Forget every session (the broker changed); the model stays usable. */
 void model_clear(Model *m);
+void model_on_transcriber(Model *m, const char *host, bool present);
+int model_transcribers(const Model *m);
 
 /* st == NULL clears (removes) the session. Returns MEV_* bits. */
 unsigned model_on_status(Model *m, const char *sid, const StatusMsg *st, uint64_t now);

@@ -30,6 +30,7 @@ TopicKind protocol_parse_topic(const char *topic, char sid[64], char rid[24]) {
     if (strcmp(rest, "status") == 0) return TOPIC_STATUS;
     if (strcmp(rest, "turn") == 0) return TOPIC_TURN;
     if (strcmp(rest, "reply_state") == 0) return TOPIC_REPLY_STATE;
+    if (strcmp(rest, "voice") == 0) return TOPIC_VOICE;
     if (strncmp(rest, "request/", 8) == 0) {
         const char *r = rest + 8;
         if (take_segment(r, strlen(r), rid, 24)) return TOPIC_REQUEST;
@@ -280,4 +281,40 @@ bool protocol_parse_reply_state(const char *json, size_t len, char id[24], char 
     bool ok = root && get_exact(root, "id", id, 24) && get_exact(root, "state", state, 16);
     cJSON_Delete(root);
     return ok;
+}
+
+int protocol_build_voice_end(const char *sid, int chunks, int ms, bool cancel, char *out, size_t cap) {
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "sid", sid);
+    if (cancel) {
+        cJSON_AddBoolToObject(o, "cancel", true);
+    } else {
+        cJSON_AddNumberToObject(o, "chunks", chunks);
+        cJSON_AddNumberToObject(o, "ms", ms);
+    }
+    return print_json(o, out, cap);
+}
+
+bool protocol_parse_voice(const char *json, size_t len, char id[24], char *text, size_t cap, bool *is_error) {
+    cJSON *root = parse_object(json, len);
+    bool ok = root && get_exact(root, "id", id, 24);
+    if (ok) {
+        const cJSON *t = cJSON_GetObjectItemCaseSensitive(root, "text");
+        const cJSON *e = cJSON_GetObjectItemCaseSensitive(root, "error");
+        const cJSON *pick = cJSON_IsString(t) ? t : cJSON_IsString(e) ? e : NULL;
+        ok = pick != NULL;
+        if (ok) {
+            *is_error = pick == e;
+            utf8_copy(text, cap, pick->valuestring, strlen(pick->valuestring));
+        }
+    }
+    cJSON_Delete(root);
+    return ok;
+}
+
+bool protocol_transcriber_topic(const char *topic, char host[64]) {
+    static const char prefix[] = "claude/transcriber/";
+    if (strncmp(topic, prefix, sizeof prefix - 1) != 0) return false;
+    const char *h = topic + sizeof prefix - 1;
+    return take_segment(h, strlen(h), host, 64);
 }
