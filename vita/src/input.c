@@ -77,7 +77,10 @@ Actions input_map(InputState *s, const InputFrame *f) {
     Actions a;
     memset(&a, 0, sizeof a);
     uint32_t pressed = f->buttons & ~s->prev_buttons;
+    uint32_t released = s->prev_buttons & ~f->buttons;
     s->prev_buttons = f->buttons;
+    a.cross_down = f->buttons & BTN_CROSS;
+    a.cross_up = released & BTN_CROSS;
 
     if (pressed & BTN_L) a.session_dir = -1;
     if (pressed & BTN_R) a.session_dir = 1;

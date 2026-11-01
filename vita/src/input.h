@@ -44,6 +44,8 @@ typedef struct {
     int scroll_lines; /* positive = content moves up (read further down) */
     int sel_dir;
     bool confirm, square, toggle_mode, settings, sessions, back, quit; /* quit comes from the settings page */
+    bool cross_down; /* ✕ physically held this frame (hold to talk) */
+    bool cross_up;   /* ✕ released this frame */
     bool tap; /* front panel only */
     int tap_x, tap_y;
     int pan_px;          /* right stick left/right this frame; + reveals what is to the right */

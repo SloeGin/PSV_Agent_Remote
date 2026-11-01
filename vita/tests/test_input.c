@@ -25,6 +25,24 @@ static void t_buttons_edge(void) {
     CHECK(input_map(&s, &f).confirm);
 }
 
+static void t_cross_hold_and_release(void) {
+    InputState s;
+    input_init(&s);
+    InputFrame f = idle_frame(0);
+    f.buttons = BTN_CROSS;
+    Actions a = input_map(&s, &f);
+    CHECK(a.confirm && a.cross_down && !a.cross_up);
+    f.now_ms = 16;
+    a = input_map(&s, &f);
+    CHECK(!a.confirm && a.cross_down && !a.cross_up);
+    f.buttons = 0;
+    f.now_ms = 32;
+    a = input_map(&s, &f);
+    CHECK(!a.cross_down && a.cross_up);
+    f.now_ms = 48;
+    CHECK(!input_map(&s, &f).cross_up); /* only the frame it is released */
+}
+
 static void t_button_actions(void) {
     struct { uint32_t btn; int which; } cases[] = {
         {BTN_SQUARE, 0}, {BTN_TRIANGLE, 1}, {BTN_START, 2}, {BTN_CIRCLE, 3}, {BTN_SELECT, 4}};
@@ -315,6 +333,7 @@ static void t_drag_steps(void) {
 }
 
 int main(void) {
+    RUN(t_cross_hold_and_release);
     RUN(t_drag_steps);
     RUN(t_tap_release_counts_as_action);
     RUN(t_buttons_edge);
