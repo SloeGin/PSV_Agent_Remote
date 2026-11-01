@@ -115,3 +115,26 @@ test('manifest contributes the panel and its title buttons', () => {
     assert.ok(inline.some((m) => m.command === command && m.when.includes(item)), command);
   assert.ok(fs.readFileSync(path.join(__dirname, '..', '.vscodeignore'), 'utf8').includes('!media/panel.svg'));
 });
+
+test('voice row states', () => {
+  const voiceRow = (voice) => find(buildTree({ ...STATUS, voice }, []), 'voice');
+  assert.equal(voiceRow({ state: 'active', message: 'this computer transcribes', leader: 'mac' }).description,
+    'this computer transcribes');
+  assert.equal(voiceRow({ state: 'standby', message: 'linux-box transcribes', leader: 'linux-box' }).description,
+    'linux-box transcribes');
+  const missing = voiceRow({ state: 'unavailable', message: 'whisper-cli not found — see the README', leader: null });
+  assert.match(missing.description, /whisper-cli not found/);
+  assert.equal(missing.icon[0], 'warning');
+  assert.equal(voiceRow({ state: 'off', message: 'off', leader: null }).description, 'off');
+  const old = find(buildTree({ ...STATUS, voice: undefined }, []), 'voice');
+  assert.match(old.description, /Reconnect/);
+});
+
+test('manifest contributes voice settings and the download command', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const settings = manifest.contributes.configuration.properties;
+  for (const key of ['enabled', 'whisperPath', 'model', 'language', 'prompt'])
+    assert.ok(settings[`psvAgentRemote.voice.${key}`], key);
+  assert.equal(settings['psvAgentRemote.voice.language'].default, 'zh');
+  assert.ok(manifest.contributes.commands.some((c) => c.command === 'psvAgentRemote.downloadVoiceModel'));
+});

@@ -125,3 +125,19 @@ test('client sends commands and resends the folders after a restart', async () =
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(JSON.parse(children[1].written.join('').trim()), { cmd: 'folders', paths: ['/w/a'] });
 });
+
+test('voice flags', () => {
+  const off = launchOptions('/runtime', { voiceEnabled: false }, false, {});
+  assert.ok(off.args.includes('--no-voice'));
+  const custom = launchOptions('/runtime', { voiceEnabled: true, voiceModel: '~/m.bin', voiceLanguage: 'en',
+    voiceWhisperPath: '/opt/w/whisper-cli', voicePrompt: 'hi' }, false, {});
+  const at = (flag) => custom.args[custom.args.indexOf(flag) + 1];
+  assert.equal(at('--voice-model'), require('node:path').join(require('node:os').homedir(), 'm.bin'));
+  assert.equal(at('--voice-language'), 'en');
+  assert.equal(at('--voice-whisper'), '/opt/w/whisper-cli');
+  assert.equal(at('--voice-prompt'), 'hi');
+  assert.ok(!custom.args.includes('--no-voice'));
+  const defaults = launchOptions('/runtime', { voiceEnabled: true, voiceModel: '', voiceLanguage: 'zh' }, false, {});
+  assert.ok(!defaults.args.some((a) => a.startsWith('--voice-model') || a === '--no-voice'));
+  assert.equal(defaults.args[defaults.args.indexOf('--voice-language') + 1], 'zh');
+});

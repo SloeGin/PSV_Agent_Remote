@@ -17,6 +17,13 @@ function launchOptions(runtime, config, replace = false, baseEnv = process.env) 
   if (config.stateDatabase) args.push('--state-db', expand(config.stateDatabase));
   for (const socket of config.appServerSockets || []) args.push('--app-server-socket', expand(socket));
   if (replace) args.push('--replace-managed');
+  if (config.voiceEnabled === false) args.push('--no-voice');
+  else {
+    if (config.voiceWhisperPath) args.push('--voice-whisper', expand(config.voiceWhisperPath));
+    if (config.voiceModel) args.push('--voice-model', expand(config.voiceModel));
+    if (config.voiceLanguage) args.push('--voice-language', config.voiceLanguage);
+    if (config.voicePrompt) args.push('--voice-prompt', config.voicePrompt);
+  }
   const env = { ...baseEnv, PYTHONUNBUFFERED: '1' };
   if (config.brokerHost) {
     env.PSV_REMOTE_HOST = config.brokerHost;

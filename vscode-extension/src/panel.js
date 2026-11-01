@@ -27,7 +27,16 @@ function connection(status) {
     vita.description = status.vita.mode ? `${online} · ${status.vita.mode}` : online;
     vita.icon = status.vita.online ? ['device-mobile', 'testing.iconPassed'] : ['device-mobile', undefined];
   }
-  return { id: 'connection', label: 'Connection', expanded: true, children: [broker, vita] };
+  return { id: 'connection', label: 'Connection', expanded: true, children: [broker, vita, voiceRow(status)] };
+}
+
+function voiceRow(status) {
+  const row = { id: 'voice', label: 'Voice' };
+  const voice = status.voice;
+  if (!voice) return Object.assign(row, { description: 'Run Reconnect to update the bridge manager', icon: ['info', undefined] });
+  const icons = { active: ['mic-filled', 'testing.iconPassed'], standby: ['mic', undefined], unavailable: ['warning', 'errorForeground'],
+    off: ['circle-slash', undefined] };
+  return Object.assign(row, { description: voice.message, tooltip: voice.message, icon: icons[voice.state] || ['mic', undefined] });
 }
 
 function sessions(status) {

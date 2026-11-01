@@ -79,6 +79,29 @@ change the broker or update the extension):
   over.
 - A manually started manager is never replaced. Stop it, then run **Reconnect**.
 
+## Voice replies
+
+On the Vita, hold ✕ on **Speak** in a session's reply drawer and talk; the
+transcript arrives in the draft for you to check, edit and send. The extension
+transcribes it on your own machines with [whisper.cpp](https://github.com/ggml-org/whisper.cpp);
+the audio goes from the Vita to the broker to the transcriber and nowhere else.
+
+1. Install whisper.cpp on the machine that runs the workspace (the remote host
+   in a Remote SSH window): `brew install whisper-cpp` on macOS; on Linux, your
+   distribution's package or a build from source. The extension looks for
+   `whisper-cli` on PATH and in the Homebrew locations, or set
+   **PSV Agent Remote › Voice: Whisper Path**.
+2. Run **PSV Agent Remote: Download Voice Model** (about 550 MB,
+   `ggml-large-v3-turbo-q5_0`, good with Chinese and English mixed in one
+   sentence), or point **Voice: Model** at a ggml model you already have.
+3. The panel's **Voice** row says whether this computer transcribes.
+
+When several computers on the same broker can transcribe, they pick one
+automatically: the most capable model wins, then the fastest machine. If it
+goes away, another takes over. **Voice: Language** (default `zh`) and
+**Voice: Prompt** tune whisper; turn **Voice: Enabled** off to keep a machine
+out of it.
+
 ## Codex runtimes
 
 **Frontend IPC** is enabled by default for local Codex frontend sessions,

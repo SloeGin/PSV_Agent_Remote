@@ -4,13 +4,16 @@ const vscode = require('vscode');
 const path = require('node:path');
 const { Client } = require('./client');
 const { makeProvider, confirmKiroStop } = require('./panel');
+const { MODEL_URL, defaultModelPath, downloadModel } = require('./voice');
 
 let client;
 
 function configuration() {
   const source = vscode.workspace.getConfiguration('psvAgentRemote');
-  return Object.fromEntries(['autoStart', 'pythonPath', 'experimentalIpc', 'brokerHost', 'brokerPort',
-    'hostId', 'ipcSocket', 'stateDatabase', 'appServerSockets', 'maxSessions'].map((key) => [key, source.get(key)]));
+  return { ...Object.fromEntries(['autoStart', 'pythonPath', 'experimentalIpc', 'brokerHost', 'brokerPort',
+    'hostId', 'ipcSocket', 'stateDatabase', 'appServerSockets', 'maxSessions'].map((key) => [key, source.get(key)])),
+  voiceEnabled: source.get('voice.enabled'), voiceWhisperPath: source.get('voice.whisperPath'),
+  voiceModel: source.get('voice.model'), voiceLanguage: source.get('voice.language'), voicePrompt: source.get('voice.prompt') };
 }
 
 function folders() {
@@ -56,6 +59,24 @@ function activate(context) {
     kiroStart: (node) => { if (node && node.cwd) client.send({ cmd: 'kiro_start', cwd: node.cwd }); },
     kiroStop: (node) => node && node.cwd ? confirmKiroStop(node, vscode.window.showWarningMessage, (cmd) => client.send(cmd)) : undefined,
     restore: (node) => { if (node && node.sid) client.send({ cmd: 'restore', sid: node.sid }); },
+    downloadVoiceModel: async () => {
+      const dest = defaultModelPath();
+      try {
+        await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Downloading the voice model',
+          cancellable: false }, (progress) => {
+          let shown = 0;
+          return downloadModel({ url: MODEL_URL, dest, onProgress: (done, total) => {
+            if (!total) return;
+            const percent = Math.floor((done / total) * 100);
+            if (percent > shown) { progress.report({ increment: percent - shown, message: `${percent}%` }); shown = percent; }
+          } });
+        });
+        vscode.window.showInformationMessage(`Voice model saved to ${dest}.`);
+        if (!paused) await start(true);
+      } catch (error) {
+        vscode.window.showErrorMessage(`Couldn't download the voice model: ${error.message}`);
+      }
+    },
     configure: () => vscode.commands.executeCommand('workbench.action.openSettings', '@ext:psv-agent-remote.psv-agent-remote'),
     menu: async () => {
       const items = [

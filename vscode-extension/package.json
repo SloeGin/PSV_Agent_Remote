@@ -54,7 +54,8 @@
       { "command": "psvAgentRemote.menu", "title": "PSV Agent Remote: Connection Menu" },
       { "command": "psvAgentRemote.kiroStart", "title": "PSV Agent Remote: Start Kiro Session", "icon": "$(play)" },
       { "command": "psvAgentRemote.kiroStop", "title": "PSV Agent Remote: Stop Kiro Session", "icon": "$(debug-stop)" },
-      { "command": "psvAgentRemote.restore", "title": "PSV Agent Remote: Show on Vita", "icon": "$(eye)" }
+      { "command": "psvAgentRemote.restore", "title": "PSV Agent Remote: Show on Vita", "icon": "$(eye)" },
+      { "command": "psvAgentRemote.downloadVoiceModel", "title": "PSV Agent Remote: Download Voice Model" }
     ],
     "configuration": {
       "title": "PSV Agent Remote",
@@ -68,7 +69,12 @@
         "psvAgentRemote.ipcSocket": { "type": "string", "default": "", "scope": "machine", "description": "Optional Codex frontend Unix socket path." },
         "psvAgentRemote.stateDatabase": { "type": "string", "default": "", "scope": "machine", "description": "Optional read-only Codex thread index path." },
         "psvAgentRemote.appServerSockets": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [], "scope": "machine", "description": "Existing shared CLI App Server Unix socket paths. Configure once per runtime, not per session." },
-        "psvAgentRemote.maxSessions": { "type": "number", "default": 16, "minimum": 1, "maximum": 16, "scope": "application", "description": "Maximum number of managed Codex sessions." }
+        "psvAgentRemote.maxSessions": { "type": "number", "default": 16, "minimum": 1, "maximum": 16, "scope": "application", "description": "Maximum number of managed Codex sessions." },
+        "psvAgentRemote.voice.enabled": { "type": "boolean", "default": true, "scope": "application", "description": "Transcribe voice replies from the Vita on this machine with whisper.cpp (when it is installed). Machines on the same broker pick one transcriber automatically." },
+        "psvAgentRemote.voice.whisperPath": { "type": "string", "default": "", "scope": "machine", "description": "Path to whisper-cli. Empty searches PATH and the Homebrew locations." },
+        "psvAgentRemote.voice.model": { "type": "string", "default": "", "scope": "machine", "description": "whisper.cpp ggml model file. Empty uses the model fetched by PSV Agent Remote: Download Voice Model." },
+        "psvAgentRemote.voice.language": { "type": "string", "default": "zh", "scope": "machine", "description": "Spoken language passed to whisper (zh also handles English words mixed into Chinese)." },
+        "psvAgentRemote.voice.prompt": { "type": "string", "default": "", "scope": "machine", "description": "Initial prompt for whisper. Empty uses a built-in prompt for Simplified Chinese mixed with English." }
       }
     }
   }
