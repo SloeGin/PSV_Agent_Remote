@@ -11,14 +11,16 @@ and Vita exchange messages through an MQTT broker on your network.
 | **Claude Code — CLI and VS Code** | Install the Claude hooks | Claude starts the hooks and reply listener automatically for each session. No separate bridge service to launch. |
 | **Codex — VS Code (experimental)** | Install the PSV Agent Remote VSIX | The extension automatically starts and manages a background bridge service when VS Code opens. No per-session setup. |
 | **Codex — CLI (experimental)** | Configure a shared Codex App Server endpoint | Run the shared App Server and the PSV bridge manager, or let the VS Code extension manage the bridge. Start the CLI through that shared server; ordinary standalone CLI sessions cannot be attached. |
+| **Kiro — CLI (experimental)** | Install `kiro-cli` and log in | **Start** it per workspace folder from the VS Code extension's panel, or run `psv_kiro.py`. The session has no computer-side chat window: you prompt it from the Vita. Kiro IDE conversations are not supported. |
 
 **An MQTT broker must be running for every option.** Claude's one-time hook
-installation and the Codex extension do not install or start the broker.
+installation and the VS Code extension do not install or start the broker.
 
 Claude has been tested on hardware. Codex's supported approval, question, reply
 and stop paths have passed real local backend/MQTT tests; full Codex hardware
 acceptance remains pending. Codex offers fewer approval/question variants than
-Claude. See [Codex support and limitations](docs/codex-integration.md).
+Claude. See [Codex support and limitations](docs/codex-integration.md) and
+[Kiro support](docs/kiro-integration.md).
 
 ## Features
 
@@ -38,21 +40,28 @@ Claude. See [Codex support and limitations](docs/codex-integration.md).
   on the computer in desk mode. Charging switches modes automatically.
 - **Desktop fallback.** Offline, expired and unsupported requests stay with the
   agent's normal computer-side dialog.
+- **Battery-friendly dimming.** After the idle time set in Settings, the app
+  stops drawing and lets the system dim the screen. It stays connected, still
+  chimes when a session needs you, and any button or touch wakes it.
+- **VS Code panel.** The extension's side-bar panel shows the broker and Vita
+  state and every session on the broker, and starts or stops Kiro sessions.
 - **Optional TLS-PSK.** Encrypt the Vita-to-broker connection; see the
   [encrypted setup](#encrypted-broker-tls-psk) for its computer-side requirements.
 
 ## How it works
 
 ```text
-Claude Code ── hooks ───────────────┐
-                                  ├── MQTT broker ── PS Vita
-Codex ── background bridge manager ┘
+Claude Code ── hooks ─────────────────────┐
+                                         ├── MQTT broker ── PS Vita
+Codex ──┐                                │
+Kiro  ──┴── background bridge manager ───┘
+             (+ voice transcriber)
           ↑ started by the VS Code extension, or run manually for CLI
 ```
 
-The VS Code extension is a local launcher and status interface for the Codex
-bridge service. It does not replace the official Codex extension or change
-Claude's hooks.
+The VS Code extension is a local launcher, panel and status interface for the
+bridge manager, which also runs the whisper.cpp transcriber for voice replies.
+It does not replace the official Codex extension or change Claude's hooks.
 
 ## Requirements
 
@@ -62,6 +71,8 @@ Claude's hooks.
 - **Python 3.11+** on the computer running the agent.
 - For **Claude replies**, Claude Code with `asyncRewake` hook support (tested with
   2.1.311). On older clients, omit the `psv_listen.py` hook entries.
+- Optional, for **voice replies**: whisper.cpp and a ggml model on at least one
+  computer running the VS Code extension (macOS or Linux).
 - **VitaSDK** to build the Vita app. Building the VSIX from source also needs
   **Node.js 20+**, npm and Python with pip. These build tools are not needed to
   install an already-built VSIX.
@@ -130,8 +141,10 @@ npm run package
    `vscode-extension/dist/psv-agent-remote-0.1.0.vsix`.
 2. Run **PSV Agent Remote: Configure** and set **Broker Host** to your broker's
    address. Alternatively, reuse the configuration file shown above.
-3. Open Codex and use it normally. The **PSV** status item shows the bridge service
-   state and managed session count; click it for connection controls or logs.
+3. Open Codex and use it normally. The **PSV Agent Remote** panel in the Activity
+   Bar shows the connection and sessions; the **PSV** status item shows the
+   bridge service state and managed session count; click it for connection
+   controls or logs.
 
 The VSIX bundles the bridge and Python dependencies: no checkout or pip setup is
 needed on the machine installing it. Python 3.11+ must still be available. If it
@@ -142,9 +155,10 @@ windows share one service; closing the last window stops an extension-owned
 service after a short delay. After rebooting, reopening VS Code starts it again.
 You do not need to run `psv_codex.py watch` yourself for normal VS Code use.
 
-This integration currently supports local macOS/Linux agents. It uses a
-version-dependent frontend interface; compatible versions, settings and details
-are in the [extension guide](vscode-extension/README.md).
+This integration supports macOS and Linux, including Remote SSH hosts (install
+the extension on the host as well). It uses a version-dependent frontend
+interface; compatible versions, settings, voice setup and details are in the
+[extension guide](vscode-extension/README.md).
 
 #### Codex CLI: shared runtime required
 
@@ -158,6 +172,13 @@ after a reboot. See the [standalone manager](docs/codex-integration.md#persisten
 and [shared CLI setup](docs/codex-integration.md#cli-existing-shared-app-server-runtime)
 for the commands. A normally started CLI cannot be attached by starting another server afterward;
 launch the CLI through the shared server instead.
+
+#### Kiro CLI (experimental)
+
+Install `kiro-cli` and run `kiro-cli login`. Then, in the VS Code extension's
+panel, **Start** a Kiro session under **Kiro in this window**; it appears on the
+Vita, where you prompt it and answer its approvals. Without VS Code, run
+`hooks/psv_kiro.py` yourself. See [Kiro support](docs/kiro-integration.md).
 
 ### 3. Install and connect the Vita app
 
@@ -179,7 +200,7 @@ once connected. The Vita and computer must use the same broker.
 | Right stick | Pan wide tables/code; switch the table being panned |
 | Sideways drag on a table/code block | Pan horizontally |
 | Front touch tap | Press a tab, option, list row or button |
-| ✕ / ○ | Confirm / back |
+| ✕ / ○ | Confirm / back; hold ✕ on **Speak** or **Keep speaking** to talk |
 | □ | Hide/show a decision sheet, or open/fold the reply drawer |
 | △ | Toggle sofa/desk on the main screen; show capabilities in the session list |
 | START | Settings: brokers, sound, touch, dimming, exit |
@@ -193,9 +214,12 @@ reply shows **NOT CONFIRMED** and preserves typed text.
 
 To speak a reply, highlight **Speak** in the reply drawer, hold ✕ while talking
 (up to 30 seconds) and release. The transcript is added to the draft; nothing is
-sent until you select **Send**. Hold ✕ on **Keep speaking** in the draft to add more. Speak is dimmed when no computer on the broker
-can transcribe, and the Vita's microphone is unmuted only while you hold ✕. Front touch can be disabled
-in Settings.
+sent until you select **Send**. Hold ✕ on **Keep speaking** in the draft to add
+more. Speak is dimmed when no computer on the broker can transcribe, and the
+Vita's microphone is unmuted only while you hold ✕.
+
+Front touch can be disabled in Settings, where you also set how long the app
+waits before dimming.
 
 The application pages, home icon and LiveArea use the independent `#DDD23B`
 palette. Conversations and capability popups use the corresponding Agent palette.
@@ -260,11 +284,11 @@ cd vscode-extension && npm ci && npm test
 
 | Path | Contents |
 |---|---|
-| `hooks/` | Claude hooks/installer, shared Python code, Codex bridge/manager and tests |
-| `vscode-extension/` | Codex launcher/status extension and VSIX packaging |
+| `hooks/` | Claude hooks/installer, shared Python code, Codex and Kiro bridges, the bridge manager, the voice transcriber and tests |
+| `vscode-extension/` | Launcher, panel and status extension, voice model download and VSIX packaging |
 | `vita/` | Vita C app, host tests, fonts, icons and LiveArea artwork |
 | `tools/` | Broker, pairing, test-client and asset-generation tools |
-| `docs/` | Setup guides, Codex technical notes and HTML mockups |
+| `docs/` | Setup guides, Codex and Kiro technical notes and HTML mockups |
 
 Local probes, runtime captures, build outputs, generated keys and user
 configuration do not belong in Git. The repository's ignore rules cover common

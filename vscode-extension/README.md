@@ -1,8 +1,9 @@
 # PSV Agent Remote for VS Code
 
-Automatically connect local Codex sessions to your PlayStation Vita. Install this
+Automatically connect Codex sessions to your PlayStation Vita. Install this
 extension once, then open VS Code: the bridge manager discovers existing and new
-sessions without per-thread setup.
+sessions without per-thread setup. The extension also starts Kiro sessions from
+its panel, and transcribes voice replies spoken on the Vita.
 
 ## Install
 

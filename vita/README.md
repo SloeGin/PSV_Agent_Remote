@@ -14,7 +14,7 @@ cmake --build vita/build        # produces vita/build/psv_agent_remote.vpk
 
 ## Tests
 
-The platform-independent code (protocol, model, layout, Markdown, input mapping, config, PSK parsing) builds with the host compiler under ASan and UBSan, so no SDK is needed. UI tests use a recording renderer to verify theme colors and modal hit regions; they do not emulate Vita fonts or GPU output:
+The platform-independent code (protocol, model, layout, Markdown, input mapping, reply drawer, config, PSK parsing, the audio ring buffer and screen dimming) builds with the host compiler under ASan and UBSan, so no SDK is needed. UI tests use a recording renderer to verify theme colors and modal hit regions; they do not emulate Vita fonts or GPU output:
 
 ```bash
 make -C vita/tests                                        # prints ALL PASS when every test passes
@@ -39,6 +39,9 @@ Versions before the rename used `ux0:data/psv_claude_remote/`; the app moves tha
 | `protocol.c`, `model.c` | Message parsing and the session/request model |
 | `ui.c`, `gfx.c`, `textlayout.c`, `markdown.c`, `view.c` | Drawing, fonts, text wrapping, Markdown, scrolling and tables |
 | `input.c`, `settings.c`, `sessionlist.c` | Buttons, sticks and touch; the Settings page; the session list |
+| `reply.c` | Reply drawer: presets, Type…, Speak and the draft box |
+| `mic.c`, `voicebuf.c` | Microphone thread and its ring buffer for voice replies |
+| `screen.c` | Stops rendering while dimmed |
 | `config.c`, `psk.c`, `util.c`, `audio.c` | Config file, key file, UTF-8 helpers, chimes |
 
 ## Fonts and artwork
@@ -51,7 +54,7 @@ Versions before the rename used `ux0:data/psv_claude_remote/`; the app moves tha
   and Settings use that same palette; a capability popup uses the highlighted
   session's Agent palette, and conversations use the active session's palette.
 - Session Agent marks: `python3 tools/make_agent_icons.py` (needs Pillow to rebuild).
-  The committed `assets/agents/{claude,codex}.png` files are transparent 24×24 RGBA
+  The committed `assets/agents/{claude,codex,kiro}.png` files are transparent 24×24 RGBA
   images, supersampled offline from the mockup's shapes. Verify them with
   `python3 tools/make_agent_icons.py --check`. They are packaged under `app0:icons/`,
   loaded once, and drawn as texture quads; no per-frame icon geometry is generated.
