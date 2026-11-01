@@ -4,7 +4,8 @@ from psv_remote.bus import Bus, BusError
 
 
 class FakeBus:
-    def __init__(self):
+    def __init__(self, will: tuple[str, bytes] | None = None):
+        self.will = will
         self.retained: dict[str, bytes] = {}
         self.published: list[tuple[str, bytes, bool]] = []
         self.subscribed: list[str] = []

@@ -110,3 +110,26 @@ def test_connect_within_one_try_for_a_small_budget():
     with pytest.raises(BusError):
         connect_within(attempt, 0.5, per_try_s=2.0, clock=lambda: 0.0 if not tries else 1.0, sleep=lambda s: None)
     assert tries == [0.5]
+
+
+def test_will_is_set_before_connect(monkeypatch):
+    import psv_remote.bus as busmod
+    calls = []
+
+    class Client:
+        def __init__(self, *a, **k):
+            self.connect_timeout = None
+
+        def will_set(self, topic, payload, qos, retain):
+            calls.append(("will", topic, payload, qos, retain))
+
+        def connect(self, *a, **k):
+            calls.append(("connect",))
+
+        def loop_start(self):
+            self.on_connect(self, None, None, type("R", (), {"is_failure": False})(), None)
+
+    monkeypatch.setattr(busmod.mqtt, "Client", Client)
+    monkeypatch.setattr(busmod, "_resolve", lambda host, port, timeout: host)
+    PahoBus(Config(), will=("claude/transcriber/h1", b""))
+    assert calls == [("will", "claude/transcriber/h1", b"", 1, True), ("connect",)]

@@ -50,7 +50,7 @@ def _resolve(host: str, port: int, timeout_s: float) -> str:
 
 
 class PahoBus:
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, will: tuple[str, bytes] | None = None):
         deadline = time.monotonic() + cfg.connect_timeout_s
         self._queues: dict[str, queue.Queue] = {}
         self._all: queue.Queue = queue.Queue()
@@ -62,6 +62,8 @@ class PahoBus:
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
+        if will is not None:  # retained, so an empty will clears a retained announcement
+            self._client.will_set(will[0], will[1], qos=1, retain=True)
         address = _resolve(cfg.broker_host, cfg.broker_port, cfg.connect_timeout_s)
         self._client.connect_timeout = max(0.1, deadline - time.monotonic())
         try:
@@ -135,8 +137,8 @@ class PahoBus:
         self._client.loop_stop()
 
 
-def open_bus(cfg: Config) -> Bus:
-    return PahoBus(cfg)
+def open_bus(cfg: Config, will: tuple[str, bytes] | None = None) -> Bus:
+    return PahoBus(cfg, will)
 
 
 RETRY_PAUSE_S = 0.2
