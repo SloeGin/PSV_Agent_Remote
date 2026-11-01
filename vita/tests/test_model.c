@@ -665,8 +665,20 @@ static void t_transcriber_presence_counts(void) {
     CHECK(model_transcribers(&m) == 0);
 }
 
+static void t_reconnect_forgets_transcribers(void) {
+    /* one that left while the Vita was offline sends nothing: retained deletes are not redelivered */
+    static Model m;
+    model_init(&m, MODE_SOFA);
+    model_on_transcriber(&m, "mac", true);
+    model_forget_transcribers(&m);
+    CHECK(model_transcribers(&m) == 0);
+    model_on_transcriber(&m, "mac", true); /* the retained announcement comes again on resubscribe */
+    CHECK(model_transcribers(&m) == 1);
+}
+
 int main(void) {
     RUN(t_transcriber_presence_counts);
+    RUN(t_reconnect_forgets_transcribers);
     RUN(t_idle_since);
     RUN(t_model_clear);
     RUN(t_summary_rev_changes);

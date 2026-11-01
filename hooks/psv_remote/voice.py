@@ -19,7 +19,7 @@ from pathlib import Path
 
 RATE = 16000
 IDLE_S = 10.0  # a recording with nothing new for this long is dropped
-TIMEOUT_S = 120.0
+TIMEOUT_S = 25.0  # the Vita gives up 30 s after release; a stuck job must not block the next
 INCOMPLETE = "Audio incomplete — try again"
 
 DEFAULT_MODEL = Path.home() / ".cache/psv-agent-remote/models/ggml-large-v3-turbo-q5_0.bin"
@@ -102,16 +102,17 @@ class Assembler:
             data = json.loads(payload)
         except (ValueError, UnicodeDecodeError):
             return None
-        if not isinstance(data, dict) or not isinstance(data.get("sid"), str):
-            return None
+        sid = data.get("sid") if isinstance(data, dict) else None
+        if not isinstance(sid, str) or not sid or any(c in sid for c in "/+#"):
+            return None  # not a session id we could publish a result to
         parts = self.parts.pop(vid, {})
         self.seen.pop(vid, None)
         if data.get("cancel"):
             return None
         count = data.get("chunks")
         if not isinstance(count, int) or count <= 0 or set(parts) != set(range(count)):
-            return Job(vid, data["sid"], None, INCOMPLETE)
-        return Job(vid, data["sid"], b"".join(parts[i] for i in range(count)), None)
+            return Job(vid, sid, None, INCOMPLETE)
+        return Job(vid, sid, b"".join(parts[i] for i in range(count)), None)
 
     def expire(self) -> list[str]:
         now = self.clock()
@@ -142,15 +143,18 @@ class Whisper:
         self.run, self.clock = run, clock
 
     def transcribe(self, pcm: bytes) -> str:
-        fd, name = tempfile.mkstemp(prefix="psv-voice-", suffix=".wav")
-        os.close(fd)
-        wav = Path(name)
+        wav = None
         try:
+            fd, name = tempfile.mkstemp(prefix="psv-voice-", suffix=".wav")
+            os.close(fd)
+            wav = Path(name)
             write_wav(wav, pcm)
             argv = [self.binary, "-m", self.model, "-f", str(wav), "-l", self.language,
                     "--prompt", self.prompt, "-nt", "-np"]
             try:
-                done = self.run(argv, capture_output=True, text=True, timeout=TIMEOUT_S)
+                # whisper may split a character across segment lines; never fail on decoding
+                done = self.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                timeout=TIMEOUT_S)
             except subprocess.TimeoutExpired as e:
                 raise WhisperError("Transcription took too long") from e
             except OSError as e:
@@ -158,8 +162,11 @@ class Whisper:
             if done.returncode != 0:
                 raise WhisperError("Transcription failed")
             return _join([line.strip() for line in done.stdout.splitlines() if line.strip()])
+        except OSError as e:
+            raise WhisperError("Couldn't write the recording to a temporary file") from e
         finally:
-            wav.unlink(missing_ok=True)
+            if wav is not None:
+                wav.unlink(missing_ok=True)
 
     def benchmark(self) -> int:
         """Milliseconds to transcribe one second of silence (comparable across machines)."""

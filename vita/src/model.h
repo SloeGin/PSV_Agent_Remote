@@ -136,6 +136,8 @@ void model_free(Model *m);
 /* Forget every session (the broker changed); the model stays usable. */
 void model_clear(Model *m);
 void model_on_transcriber(Model *m, const char *host, bool present);
+/* Before resubscribing: one that left while we were offline sends nothing (retained deletes are not redelivered). */
+void model_forget_transcribers(Model *m);
 int model_transcribers(const Model *m);
 
 /* st == NULL clears (removes) the session. Returns MEV_* bits. */

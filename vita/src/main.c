@@ -289,6 +289,11 @@ static void handle_messages(App *app, uint64_t now) {
     while (net_pop(&msg)) {
         char sid[64], rid[24], host[64];
         unsigned ev = 0;
+        if (!strcmp(msg.topic, NET_TOPIC_SUBSCRIBING)) {
+            model_forget_transcribers(&app->model); /* the retained announcements follow */
+            free(msg.payload);
+            continue;
+        }
         if (protocol_transcriber_topic(msg.topic, host)) {
             model_on_transcriber(&app->model, host, msg.len > 0);
             free(msg.payload);

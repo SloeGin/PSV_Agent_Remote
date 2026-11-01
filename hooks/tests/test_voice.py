@@ -187,3 +187,21 @@ def test_defaults():
     assert voice.DEFAULT_MODEL.parent == Path.home() / ".cache/psv-agent-remote/models"
     assert voice.DEFAULT_LANGUAGE == "zh"
     assert "English" in voice.DEFAULT_PROMPT
+
+
+def test_whisper_decodes_utf8_leniently_within_the_vita_budget():
+    seen = {}
+
+    def run(argv, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(argv, 0, "ok", "")
+    Whisper("w", "m", "zh", "p", run=run).transcribe(b"")
+    assert seen["encoding"] == "utf-8" and seen["errors"] == "replace"
+    assert seen["timeout"] <= 25  # the Vita gives up 30 s after release
+
+
+def test_whisper_temp_file_failure_raises(monkeypatch):
+    import tempfile
+    monkeypatch.setattr(tempfile, "mkstemp", lambda **kw: (_ for _ in ()).throw(OSError("read-only")))
+    with pytest.raises(WhisperError):
+        Whisper("w", "m", "zh", "p", run=Run("")).transcribe(b"")

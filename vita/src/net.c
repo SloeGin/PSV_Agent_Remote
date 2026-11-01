@@ -210,6 +210,7 @@ static int net_thread(SceSize args, void *argp) {
         const char *mode = mode_str(g_mode);
         bool ok = mqtt_publish(c, TOPIC_ONLINE, "1", 1, 1, 1) >= 0;
         ok = ok && mqtt_publish(c, TOPIC_MODE, mode, strlen(mode), 1, 1) >= 0;
+        on_message(NET_TOPIC_SUBSCRIBING, (const uint8_t *)"", 0, NULL);
         ok = ok && mqtt_subscribe(c, "claude/session/#", 0) == 0;
         ok = ok && mqtt_subscribe(c, TOPIC_ONLINE, 0) == 0;
         ok = ok && mqtt_subscribe(c, TOPIC_TRANSCRIBERS, 0) == 0;

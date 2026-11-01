@@ -61,6 +61,10 @@ void model_on_transcriber(Model *m, const char *host, bool present) {
         snprintf(m->transcribers[m->n_transcribers++], sizeof m->transcribers[0], "%s", host);
 }
 
+void model_forget_transcribers(Model *m) {
+    m->n_transcribers = 0;
+}
+
 int model_transcribers(const Model *m) {
     return m->n_transcribers;
 }

@@ -71,7 +71,15 @@ class Transcriber:
 
     def _run(self):
         while (item := self.work.get()) is not None:
+            self._run_one(item)
+
+    @staticmethod
+    def _run_one(item):
+        """One queued item; nothing it raises may end the worker (the machine would keep winning, silently)."""
+        try:
             item()
+        except Exception as e:  # last resort; it goes to the manager log
+            print(f"Voice transcriber: {e!r}", flush=True)
 
     def work_once(self) -> bool:
         """Run one queued item on this thread (tests); False when nothing was queued."""
@@ -80,7 +88,7 @@ class Transcriber:
         except queue.Empty:
             return False
         if item is not None:
-            item()
+            self._run_one(item)
         return True
 
     def _benchmark(self):
@@ -88,6 +96,8 @@ class Transcriber:
             self.score = self.whisper.benchmark()
         except WhisperError as e:
             self.problem = str(e)
+        except Exception as e:
+            self.problem = f"Couldn't run whisper: {e}"
         self.benchmarking = False
 
     def _transcribe(self, job):
@@ -99,13 +109,15 @@ class Transcriber:
                 result = {"id": job.vid, "text": text} if text else {"id": job.vid, "error": NOTHING_HEARD}
             except WhisperError as e:
                 result = {"id": job.vid, "error": str(e)}
+            except Exception:
+                result = {"id": job.vid, "error": "Transcription failed"}
         bus = self.bus
         if bus is None:
             return  # disconnected meanwhile; the Vita times out
         try:
             bus.publish(topics.voice_result(job.sid), json.dumps(result, ensure_ascii=False).encode(),
                         retain=True, qos=1)
-        except BusError:
+        except (BusError, ValueError):  # paho raises ValueError for a topic it rejects
             pass
 
     # ---- manager loop ----

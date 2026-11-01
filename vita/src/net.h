@@ -29,6 +29,8 @@ void net_set_brokers(const AppConfig *cfg);
 void net_set_mode(Mode mode);
 
 bool net_pop(InMsg *out);
+/* Queued (empty) on every connect, before the subscriptions' retained messages. */
+#define NET_TOPIC_SUBSCRIBING "psv/subscribing"
 void net_publish(const char *topic, const void *payload, size_t len, int qos, int retain);
 
 NetStatus net_status(void);

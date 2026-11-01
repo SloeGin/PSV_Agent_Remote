@@ -244,3 +244,39 @@ def test_settings_reach_whisper():
     t, bus = make(whisper=whisper, voice={"language": "en", "prompt": "hello"})
     start(t)
     assert whisper.args == ("/bin/whisper-cli", MODEL, "en", "hello")
+
+
+class Boom(FakeWhisper):
+    def transcribe(self, pcm):
+        self.pcm.append(pcm)
+        raise UnicodeDecodeError("utf-8", b"\xe4", 0, 1, "cut")
+
+
+def test_unexpected_error_becomes_error_result_and_worker_survives():
+    whisper = Boom()
+    t, bus = make(whisper=whisper)
+    t.score = 700
+    t.poll()
+    recording(bus, vid="v1")
+    t.poll()
+    t.work_once()
+    assert json.loads(bus.retained[topics.voice_result("s1")]) == {"id": "v1", "error": "Transcription failed"}
+    t.work.put(lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    t._run_one(t.work.get())  # what the worker thread does with each item: it must not raise
+
+
+def test_benchmark_crash_is_unavailable():
+    class BadBench(FakeWhisper):
+        def benchmark(self):
+            raise OSError("No space left on device")
+    t, bus = make(whisper=BadBench())
+    start(t)
+    assert t.state()["state"] == "unavailable" and bus.published == []
+
+
+def test_bad_session_id_is_ignored():
+    t, bus = make()
+    start(t)
+    recording(bus, sid="s/+#")
+    t.poll()
+    assert t.work_once() is False
