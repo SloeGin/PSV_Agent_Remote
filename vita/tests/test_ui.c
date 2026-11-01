@@ -355,12 +355,13 @@ static void t_draft_box_keep_speaking(void) {
     UiView v = {.net=NET_UP, .battery_pct=-1, .voice_ok=true, .voice_secs=7, .voice_level=50};
     draw_drawer(&m, &v);
     CHECK(text_seen("Send") && text_seen("Keep speaking") && text_seen("Edit") && text_seen("Discard"));
-    r->voice = VS_RECORDING;
+    r->voice = VS_RECORDING; /* the buttons give way to the Speak row's recording line */
     draw_drawer(&m, &v);
-    CHECK(text_seen("RECORDING 0:07") && text_seen("Release to add") && !text_seen("Keep speaking"));
+    CHECK(text_seen("0:07") && text_seen("release to add") && text_seen("DRAFT"));
+    CHECK(!text_seen("Keep speaking") && !text_seen("Send") && !text_seen("RECORDING 0:07"));
     r->voice = VS_TRANSCRIBING;
     draw_drawer(&m, &v);
-    CHECK(text_seen("TRANSCRIBING…"));
+    CHECK(text_seen("Transcribing…") && !text_seen("Send"));
     model_free(&m);
 }
 

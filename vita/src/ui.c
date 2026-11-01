@@ -1301,7 +1301,7 @@ static void draw_reply_header(int sy, const char *chip, unsigned chip_c, const c
 }
 
 /* The Speak row while recording (dot, time, level) or waiting for the text. */
-static void draw_speak_progress(const Reply *r, const UiView *v, int x, int y, int w) {
+static void draw_speak_progress(const Reply *r, const UiView *v, int x, int y, int w, const char *note) {
     if (r->voice == VS_TRANSCRIBING) {
         gfx_text(F_SANS, x + 16, y + 10, C_MUTED, BODY_SIZE, "Transcribing…", -1);
         return;
@@ -1313,7 +1313,6 @@ static void draw_speak_progress(const Reply *r, const UiView *v, int x, int y, i
     int segs = (v->voice_level + 9) / 10, bx = x + 100;
     for (int k = 0; k < 10; k++)
         gfx_round_rect(bx + k * 14, y + 14, 10, 14, 2, k < segs ? C_TEAL : C_LINE2);
-    const char *note = "release to send";
     gfx_text(F_MONO, x + w - 16 - gfx_text_width(F_MONO, 12, note, -1), y + 14, C_MUTED, 12, note, -1);
 }
 
@@ -1361,7 +1360,7 @@ static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
         ReplyItem it = l.rows[i];
         bool matta = it == RR_MATTA;
         if (it == RR_SPEAK && r->voice != VS_NONE) {
-            draw_speak_progress(r, v, x, y, w);
+            draw_speak_progress(r, v, x, y, w, "release to send");
             hit(HIT_REPLY_ROW, i * 4, x, y, w, RROW_H);
             continue;
         }
@@ -1377,18 +1376,8 @@ static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
         bool queued = l.box == RB_QUEUED;
         int by = y + 6, bh = box_h - 6 - 4;
         gfx_panel(x, by, w, bh, 10, queued ? C_AMBER_DEEP : C_LINE2, C_PANEL);
-        char head[48] = "DRAFT";
-        unsigned head_c = queued ? C_AMBER : C_MUTED;
-        if (queued) snprintf(head, sizeof head, "%s", "QUEUED · SENDS WHEN THIS TURN ENDS");
-        else if (r->voice == VS_RECORDING) { /* Keep speaking, held */
-            snprintf(head, sizeof head, "RECORDING %d:%02d", v->voice_secs / 60, v->voice_secs % 60);
-            head_c = C_ROSE;
-            int segs = (v->voice_level + 9) / 10, lx = x + w - 14 - 10 * 10;
-            for (int k = 0; k < 10; k++) gfx_round_rect(lx + k * 10, by + 10, 7, 10, 2, k < segs ? C_TEAL : C_LINE2);
-        } else if (r->voice == VS_TRANSCRIBING) {
-            snprintf(head, sizeof head, "%s", "TRANSCRIBING…");
-        }
-        gfx_text_spaced(F_MONO_MED, x + 14, by + 10, head_c, 10, 1, head);
+        gfx_text_spaced(F_MONO_MED, x + 14, by + 10, queued ? C_AMBER : C_MUTED, 10, 1,
+                        queued ? "QUEUED · SENDS WHEN THIS TURN ENDS" : "DRAFT");
         const char *t = reply_box_text(r, &l);
         int ty = by + 26;
         for (int k = 0; k < n_text; k++, ty += 27) {
@@ -1398,14 +1387,17 @@ static void draw_reply(const Session *s, const UiView *v, uint64_t now) {
             else gfx_text(F_SANS, x + 14, ty, C_TEXT, BODY_SIZE, t + sp->start, sp->len);
         }
         int gap = 8, bw = (w - 28 - gap * (l.n_box - 1)) / l.n_box, btn_y = ty + 8;
-        for (int c = 0; c < l.n_box; c++) {
+        if (!queued && r->voice != VS_NONE) { /* Keep speaking: the same line as the Speak row */
+            gfx_panel(x + 14, btn_y, w - 28, RBOX_BTN_H, 9, C_LINE, C_TABON);
+            draw_speak_progress(r, v, x + 14, btn_y - 3, w - 28, "release to add");
+        }
+        for (int c = 0; c < l.n_box && (queued || r->voice == VS_NONE); c++) {
             int bx = x + 14 + c * (bw + gap);
             bool on = r->line == l.n_rows && r->col == c;
             unsigned fill = l.box_items[c] == RR_DISCARD ? C_ROSE : C_AMBER; /* like Remove in the delete dialog */
             gfx_panel(bx, btn_y, bw, RBOX_BTN_H, 9, on ? fill : C_LINE, on ? fill : C_PANEL);
             const char *lab = reply_item_label(l.box_items[c]);
-            if (l.box_items[c] == RR_SPEAK)
-                lab = r->voice == VS_RECORDING ? "Release to add" : r->voice == VS_TRANSCRIBING ? "…" : "Keep speaking";
+            if (l.box_items[c] == RR_SPEAK) lab = "Keep speaking";
             int tw = gfx_text_width(F_SANS, 14, lab, -1) + (on ? 21 : 0), tx = bx + (bw - tw) / 2;
             if (on) {
                 gfx_glyph(GLYPH_CROSS, tx, btn_y + (RBOX_BTN_H - 14) / 2, 14, fill);
